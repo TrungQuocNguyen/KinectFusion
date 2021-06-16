@@ -1,0 +1,7 @@
+https://vision.in.tum.de/rgbd/dataset/freiburg1/rgbd_dataset_freiburg1_360.tgz
+https://vision.in.tum.de/rgbd/dataset/freiburg1/rgbd_dataset_freiburg1_desk2.tgz
+https://vision.in.tum.de/rgbd/dataset/freiburg1/rgbd_dataset_freiburg1_desk.tgz
+https://vision.in.tum.de/rgbd/dataset/freiburg1/rgbd_dataset_freiburg1_floor.tgz
+https://vision.in.tum.de/rgbd/dataset/freiburg2/rgbd_dataset_freiburg2_desk.tgz
+https://vision.in.tum.de/rgbd/dataset/freiburg2/rgbd_dataset_freiburg2_teddy.tgz
+https://vision.in.tum.de/rgbd/dataset/freiburg3/rgbd_dataset_freiburg3_walking_halfsphere.tgz
