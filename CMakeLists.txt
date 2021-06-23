@@ -10,5 +10,8 @@ include_directories(${PROJECT_SOURCE_DIR}/include)
 add_executable(test_dataset "./test/test_dataset.cpp")
 target_link_libraries(test_dataset ${OpenCV_LIBS})
 
-add_executable(kinectfusion "kinectfusion.cpp")
+add_executable(test_surface_measurement "./test/test_surface_measurement.cpp")
+target_link_libraries(test_surface_measurement ${OpenCV_LIBS})
+
+add_executable(kinectfusion "./kinectfusion.cpp")
 target_link_libraries(kinectfusion ${OpenCV_LIBS})
