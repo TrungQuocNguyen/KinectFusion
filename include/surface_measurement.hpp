@@ -1,43 +1,47 @@
 #pragma once
 
 #include <opencv2/cudaimgproc.hpp>
+#include <opencv2/cudawarping.hpp>
+
 #include <opencv2/core/cuda.hpp>
 #include <opencv2/opencv.hpp>
 
 using cv::cuda::GpuMat;
 
 
-/*struct PreprocessedData{
-std::vector<GpuMat> depth_pyramid;
-std::vector<GpuMat> filtered_depth_pyramid;
-std::vector<GpuMat> color_pyramid;
-
-std::vector<GpuMat> vertex_pyramid;
-std::vector<GpuMat> normal_pyramid;
-}*/
-
 struct PreprocessedData{
-    GpuMat depth_pyramid;
-    GpuMat color_pyramid;
+    std::vector<GpuMat> depth_pyramid;
+    std::vector<GpuMat> filtered_depth_pyramid;
+    //std::vector<GpuMat> color_pyramid;              //TODO: check if this is needed
+    GpuMat color_map;
 
-    GpuMat filtered_depth_pyramid;
+    std::vector<GpuMat> vertex_pyramid;
+    std::vector<GpuMat> normal_pyramid;
 
-    GpuMat vertex_pyramid;
-    GpuMat normal_pyramid;
+    PreprocessedData(size_t size): depth_pyramid(size), filtered_depth_pyramid(size), vertex_pyramid(size), normal_pyramid(size) {} // set number of subsampled pyramid layers 
 };
 
-
-//PreprocessedData surface_measurement(cv::Mat& raw_depth_map);
-PreprocessedData surface_measurement(const cv::Mat raw_depth_map){
-    PreprocessedData data;
-    data.depth_pyramid.upload(raw_depth_map);
+PreprocessedData surface_measurement(const cv::Mat raw_depth_map, size_t num_levels, size_t kernel_size, float sigma_color, float sigma_spatial){
+    assert (num_levels > 0);
+    PreprocessedData data(num_levels);
+    data.depth_pyramid[0].upload(raw_depth_map);
     
-    // Step 1: Smooth the depth image with bilateral filtering
-    cv::cuda::bilateralFilter(data.depth_pyramid, data.filtered_depth_pyramid, 10, 20.f, 20.f);
+    cv::cuda::Stream stream;
+    // Step 1: Subsample depth (and color image???) to get pyramids (different scales of the images)
+    for (size_t i = 0; i < num_levels - 1; i++)
+    {
+        cv::cuda::pyrDown(data.depth_pyramid[i], data.depth_pyramid[i+1], stream);
+    }
+    // Step 2: Smooth the depth image with bilateral filtering
+    for (size_t i = 0; i < num_levels; i++)
+    {
+        cv::cuda::bilateralFilter(data.depth_pyramid[i], data.filtered_depth_pyramid[i], kernel_size, sigma_color, sigma_spatial, cv::BORDER_DEFAULT, stream);
+    }
+    stream.waitForCompletion();    
 
-    // Step 2: Compute vertex maps 
+    // Step 3: Compute vertex maps 
     
-    // Step 3: Compute normal maps
+    // Step 4: Compute normal maps
 
     
     return data;

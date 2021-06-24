@@ -13,36 +13,33 @@ int main(int argc, char **argv)
     // The second argument should be whether the dataset is freiburg 1, 2, or 3.
     TUMRGBDDataset tum_dataset("../data/TUMRGBD/rgbd_dataset_freiburg1_360/", TUMRGBDDataset::TUMRGBD::FREIBURG1);
 
-    for (int index=0; index < tum_dataset.size(); ++index)
-    {
-        //std::cout << std::to_string(tum_dataset.size());
-        // You can get RGB image and depth image by getData()
-        // The depth is read by cv::IMREAD_UNCHANGED
-        cv::Mat img, depth, depth_filtered;
-        
-        tum_dataset.getData(index, img, depth);
-        
-        // Show rgb image and depth image
-        cv::imshow("rgb", img);
-        depth *= 128.f; // this is only for debug depth image (0.1f looks good for imshow; 128.f looks good for imsave)
-        cv::imshow("depth", depth);
-        
-        // Compute and show smoothed depth image
-        PreprocessedData data = surface_measurement(depth);
-        data.filtered_depth_pyramid.download(depth_filtered);
-        cv::imshow("depth_filtered", depth_filtered);
-        
-        // safe images for comparison
-        if (index == 4){
-            cv::imwrite("rgb.png",img);
-            cv::imwrite("depth.png",depth);
-            cv::imwrite("depth_filtered.png",depth_filtered);
-        }
+    cv::Mat img, depth_0, depth_1, depth_2, depth_filtered_0, depth_filtered_1, depth_filtered_2;
+    size_t num_levels = 3;
+    size_t kernel_size = 5;        // values are for debugging
+    size_t sigma_color = 1.f;
+    size_t sigma_spatial = 1.f;
 
-        const int key = cv::waitKey(10);
-        if (key == 'q')
-        {
-            break;
-        }
-    }
+    size_t index = 4;   // index for choosing frame in dataset
+    tum_dataset.getData(index, img, depth_0);
+    
+    depth_0 *= 128.f; // this is only for debug depth image (0.1f looks good for imshow; 128.f looks good for imsave)
+    
+    // Compute and show smoothed depth image
+    PreprocessedData data = surface_measurement(depth_0, num_levels, kernel_size, sigma_color, sigma_spatial);
+    
+    // safe images for comparison
+    data.depth_pyramid[0].download(depth_0);
+    data.depth_pyramid[1].download(depth_1);
+    data.depth_pyramid[2].download(depth_2);
+    data.filtered_depth_pyramid[0].download(depth_filtered_0);
+    data.filtered_depth_pyramid[1].download(depth_filtered_1);
+    data.filtered_depth_pyramid[2].download(depth_filtered_2);
+
+    cv::imwrite("rgb.png",img);
+    cv::imwrite("depth0.png",depth_0);
+    cv::imwrite("depth1.png",depth_1);
+    cv::imwrite("depth2.png",depth_2);
+    cv::imwrite("depth_filtered0.png",depth_filtered_0);
+    cv::imwrite("depth_filtered1.png",depth_filtered_1);
+    cv::imwrite("depth_filtered2.png",depth_filtered_2);
 }
