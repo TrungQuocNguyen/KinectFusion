@@ -9,18 +9,6 @@
 using cv::cuda::GpuMat;
 
 
-struct PreprocessedData{
-    std::vector<GpuMat> depth_pyramid;
-    std::vector<GpuMat> filtered_depth_pyramid;
-    //std::vector<GpuMat> color_pyramid;              //TODO: check if this is needed
-    GpuMat color_map;
-
-    std::vector<GpuMat> vertex_pyramid;
-    std::vector<GpuMat> normal_pyramid;
-
-    PreprocessedData(size_t size): depth_pyramid(size), filtered_depth_pyramid(size), vertex_pyramid(size), normal_pyramid(size) {} // set number of subsampled pyramid layers 
-};
-
 PreprocessedData surface_measurement(const cv::Mat raw_depth_map, size_t num_levels, size_t kernel_size, float sigma_color, float sigma_spatial){
     assert (num_levels > 0);
     PreprocessedData data(num_levels);
