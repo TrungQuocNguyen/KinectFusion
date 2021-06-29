@@ -36,6 +36,7 @@ struct CameraIntrinsics
     float fx, fy, cx, cy;       // focal lengths and center point
 
     // Constructor
+    CameraIntrinsics() {}
     CameraIntrinsics(const int& img_width_, const int& img_height_, const float& fx_, const float& fy_, const float& cx_, const float& cy_){
         img_width = img_width_;
         img_height = img_height_;
