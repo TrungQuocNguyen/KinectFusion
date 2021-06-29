@@ -6,35 +6,37 @@
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 #include <opencv2/opencv.hpp>
+#include <datatypes.hpp>
 
 
 // TODO: get camera matrix
 class Dataset {
 public:
 	int size() { return size_; }
-	void getCameraParameters(float &fx, float &fy, float &cx, float &cy)
+
+	CameraIntrinsics getCameraIntrinsics()
 	{
-		fx = fx_;
-		fy = fy_;
-		cx = cx_;
-		cy = cy_;
+		return cam_;
 	}
-	void getCameraDistortions(float *distortions)
+
+	inline void getData(const int index, cv::Mat& img, cv::Mat& depth)
 	{
-		distortions = distortions_;
+		assert(0 <= index && index < size_);
+		img = cv::imread(imgs_filenames_[index], cv::IMREAD_COLOR);
+		depth = cv::imread(depths_filenames_[index], cv::IMREAD_UNCHANGED);
+		depth.convertTo(depth, CV_32F, 1.f / 5000.f);
 	}
 
 protected:
 	Dataset() {}
 
-	int width_, height_;
-	float fx_, fy_, cx_, cy_;
+	CameraIntrinsics cam_;
 	float distortions_[5] = { 0 };
 
 	int size_;  // the number of images
 
 	std::vector<std::string> imgs_filenames_, depths_filenames_;
-	
+	std::vector<Eigen::Matrix4f> gt_poses_;
 	std::vector<std::string> time_stamps_;
 
 	inline std::string getZeropadStr(int num, int len)
@@ -58,16 +60,14 @@ public:
 
 	TUMRGBDDataset(const std::string dataset_dir, TUMRGBD tumrgbd)
 	{
-		width_ = 640;
-		height_ = 480;
-		setCalibrationParameters(tumrgbd);
+		setCameraIntrinsics(tumrgbd);
 
 		std::ifstream ifs(dataset_dir + "associations.txt");
-		int count = 0;
 		std::string line;
 		while (std::getline(ifs, line))
 		{
 			std::stringstream ss(line);
+			Eigen::Matrix<float, 7, 1> tmp;
 			for (int i = 0; i < 4; ++i)
 			{
 				std::string s;
@@ -80,31 +80,28 @@ public:
 				{
 					depths_filenames_.push_back(dataset_dir + s);
 				}
+				else if (i >= 5)
+				{
+					tmp(i - 5) = std::stof(s);
+				}
 			}
-			++count;
+			Eigen::Quaternionf q(tmp(6), tmp(3), tmp(4), tmp(5));
+			Eigen::Matrix4f T = Eigen::Matrix4f::Identity();
+			T.block<3, 3>(0, 0) = q.toRotationMatrix();
+			T.block<3, 1>(0, 3) = tmp.head(3);
+			gt_poses_.push_back(T);
 		}
 		ifs.close();
-		size_ = count;
-	}
-
-	void getData(int index, cv::Mat& img, cv::Mat& depth, bool flag_rgb = true)
-	{
-		assert(0 <= index && index < size_);
-		img = cv::imread(imgs_filenames_[index], flag_rgb);
-		depth = cv::imread(depths_filenames_[index], cv::IMREAD_UNCHANGED);
-		depth.convertTo(depth, CV_32F, 1.f / 5000.f);
+		size_ = gt_poses_.size();
 	}
 
 private:
-	void setCalibrationParameters(TUMRGBD tumrgbd)
+	void setCameraIntrinsics(TUMRGBD tumrgbd)
 	{
 		switch (tumrgbd)
 		{
 		case TUMRGBD::FREIBURG1:
-			fx_ = 517.3f;
-			fy_ = 516.5f;
-			cx_ = 318.6f;
-			cy_ = 255.3f;
+			cam_ = CameraIntrinsics(640, 480, 517.3f, 516.5f, 318.6f, 255.3f);
 			distortions_[0] = 0.2624f;
 			distortions_[1] = -0.9531f;
 			distortions_[2] = -0.0054f;
@@ -112,10 +109,7 @@ private:
 			distortions_[4] = 1.1633f;
 			break;
 		case TUMRGBD::FREIBURG2:
-			fx_ = 520.9f;
-			fy_ = 521.0f;
-			cx_ = 325.1f;
-			cy_ = 249.7f;
+			cam_ = CameraIntrinsics(640, 480, 520.9f, 521.0f, 325.1f, 249.7f);
 			distortions_[0] = 0.2312f;
 			distortions_[1] = -0.7849f;
 			distortions_[2] = -0.0033f;
@@ -123,10 +117,7 @@ private:
 			distortions_[4] = 0.9172f;
 			break;
 		case TUMRGBD::FREIBURG3:
-			fx_ = 535.4f;
-			fy_ = 539.2f;
-			cx_ = 320.1f;
-			cy_ = 247.6f;
+			cam_ = CameraIntrinsics(640, 480, 535.4f, 539.2f, 320.1f, 247.6f);
 			break;
 		default:
 			throw std::exception();
@@ -155,10 +146,7 @@ public:
 
 	ICLNUIMDataset(std::string dataset_dir, ICLNUIM iclnuim)
 	{
-		fx_ = 481.2f;
-		fy_ = -480.f;
-		cx_ = 319.5f;
-		cy_ = 239.5f;
+		cam_ = CameraIntrinsics(640, 480, 481.2f, -480.f, 319.5f, 239.5f);
 
 		std::ifstream ifs(dataset_dir + getPoseFilename(iclnuim));
 		std::string line;
@@ -181,14 +169,6 @@ public:
 		}
 		ifs.close();
 		size_ = count;
-	}
-	
-	void getData(int index, cv::Mat& img, cv::Mat& depth, bool flag_rgb=true)
-	{
-		assert(0 <= index && index < size_);
-		img = cv::imread(imgs_filenames_[index], flag_rgb);
-		depth = cv::imread(depths_filenames_[index], cv::IMREAD_UNCHANGED);
-		depth.convertTo(depth, CV_32F, 1.f / 5000.f);
 	}
 
 private:

@@ -11,7 +11,9 @@ done
 for dirlist in `ls data/TUMRGBD/ -l | awk '$1 ~ /d/ {print $9}' `
 do
 echo $dirlist
-python2 data/associate.py data/TUMRGBD/$dirlist/rgb.txt data/TUMRGBD/$dirlist/depth.txt > data/TUMRGBD/$dirlist/associations.txt
+python2 data/associate.py data/TUMRGBD/$dirlist/rgb.txt data/TUMRGBD/$dirlist/depth.txt > data/TUMRGBD/$dirlist/tmp.txt
+python2 data/associate.py data/TUMRGBD/$dirlist/tmp.txt data/TUMRGBD/$dirlist/groundtruth.txt > data/TUMRGBD/$dirlist/associations.txt
+rm data/TUMRGBD/$dirlist/tmp.txt
 done
 
 # ICL-NUIM Dataset
