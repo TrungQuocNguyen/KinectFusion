@@ -7,24 +7,23 @@ using cv::cuda::GpuMat;
 
 __global__ void kernel_compute_vertex_map(const cv::cuda::PtrStepSz<float> depth_map, cv::cuda::PtrStepSz<float3> vertex_map, const CameraIntrinsics camera_params, const float max_depth){
     // Calculate global row and column for each thread
-    const int row = blockIdx.x * blockDim.x + threadIdx.x;
-    const int col = blockIdx.y * blockDim.y + threadIdx.y;
+    const int col = blockIdx.x * blockDim.x + threadIdx.x;
+    const int row = blockIdx.y * blockDim.y + threadIdx.y;
 
     if (col >= depth_map.cols || row >= depth_map.rows)
         return;
 
-    float depth_val = depth_map.ptr(col)[row];
+    float depth_val = depth_map(row, col);
 
     // Don't use depth values larger than max_depth
     if (depth_val > max_depth){
-        //depth_val = 0.f;
+        depth_val = 0.f;
     } 
 
     // from screen to camera space
-    vertex_map(col, row) = make_float3((col - camera_params.cx) * depth_val / camera_params.fx,
+    vertex_map(row, col) = make_float3((col - camera_params.cx) * depth_val / camera_params.fx,
                                        (row - camera_params.cy) * depth_val / camera_params.fy,
                                        depth_val);
-
 }
 
 /*__global__ void kernel_compute_normal_map(const GpuMat& vertex_map, GpuMat& normal_map){
