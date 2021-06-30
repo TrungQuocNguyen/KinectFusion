@@ -27,7 +27,7 @@ __global__ void kernel_compute_vertex_map(const cv::cuda::PtrStepSz<float> depth
 
 }
 
-__global__ void kernel_compute_normal_map(const GpuMat& vertex_map, GpuMat& normal_map){
+/*__global__ void kernel_compute_normal_map(const GpuMat& vertex_map, GpuMat& normal_map){
     // Calculate global row and column for each thread
     const int col = blockIdx.x * blockDim.x + threadIdx.x;
     const int row = blockIdx.y * blockDim.y + threadIdx.y;
@@ -36,7 +36,7 @@ __global__ void kernel_compute_normal_map(const GpuMat& vertex_map, GpuMat& norm
         return;
 
     normal_map(row, col) = vertex_map() / 1;
-}
+}*/
 
 void compute_vertex_map(const GpuMat& filtered_depth_map, GpuMat& vertex_map, const CameraIntrinsics camera_params, const float max_depth){
     int threads = 32;
@@ -48,7 +48,7 @@ void compute_vertex_map(const GpuMat& filtered_depth_map, GpuMat& vertex_map, co
     cudaDeviceSynchronize();
 }
 
-void compute_normal_map(const GpuMat& vertex_map, GpuMat& normal_map){
+/*void compute_normal_map(const GpuMat& vertex_map, GpuMat& normal_map){
     int threads = 32;
     dim3 T(threads, threads, 1);      // number of threads per block (depends on compute capability of your GPU)
     int blocks_x = (vertex_map.cols + T.x - 1) / T.x;
@@ -56,5 +56,5 @@ void compute_normal_map(const GpuMat& vertex_map, GpuMat& normal_map){
     dim3 M(blocks_x, blocks_y, 1);       // number of thread blocks (depends on compute capability of your GPU)
     kernel_compute_normal_map<<< M , T >>>(vertex_map, normal_map);
     cudaDeviceSynchronize();
-}
+}*/
 
