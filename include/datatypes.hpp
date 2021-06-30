@@ -35,23 +35,15 @@ struct CameraIntrinsics
     int img_width, img_height;
     float fx, fy, cx, cy;       // focal lengths and center point
 
-    // Constructor
-    CameraIntrinsics(const int& img_width_, const int& img_height_, const float& fx_, const float& fy_, const float& cx_, const float& cy_){
-        img_width = img_width_;
-        img_height = img_height_;
-        fx = fx_;
-        fy = fy_;
-        cx = cx_;
-        cy = cy_;
-    }
-
     // get camera parameters at certain pyramid level
-    CameraIntrinsics getCameraIntrinsics(const int layer){
+    CameraIntrinsics getCameraIntrinsics(const int layer) const {
         if (layer == 0) return *this;
 
         const float scale_factor = powf(0.5f, static_cast<float>(layer));
-        return (CameraIntrinsics) { img_width >> layer, img_height >> layer,
-                                    fx * scale_factor, fy * scale_factor,
+        return (CameraIntrinsics) { img_width >> layer,
+                                    img_height >> layer,
+                                    fx * scale_factor,
+                                    fy * scale_factor,
                                     (cx + 0.5f) * scale_factor - 0.5f,
                                     (cy + 0.5f) * scale_factor - 0.5f };
     }
