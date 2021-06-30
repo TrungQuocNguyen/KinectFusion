@@ -67,19 +67,16 @@ struct CameraIntrinsics
 
 
 struct VolumeData {
-    GpuMat tsdf_volume;
-    GpuMat color_volume;
+    GpuMat tsdf_volume;  // (volume_size * volume_size, volume_size)
     int3 volume_size;
     float voxel_scale;
 
     VolumeData() {}
-
+    
     VolumeData(const int3 _volume_size, const float _voxel_scale) :
         tsdf_volume(cv::cuda::createContinuous(_volume_size.y * _volume_size.z, _volume_size.x, CV_16SC2)),
-        color_volume(cv::cuda::createContinuous(_volume_size.y * _volume_size.z, _volume_size.x, CV_8UC3)),
         volume_size(_volume_size), voxel_scale(_voxel_scale)
     {
         tsdf_volume.setTo(0);
-        color_volume.setTo(0);
     }
 };

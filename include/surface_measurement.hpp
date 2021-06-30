@@ -12,13 +12,11 @@
 void compute_vertex_map(const GpuMat& depth_map, GpuMat& vertex_map, const CameraIntrinsics cam_params, const float max_depth);
 void compute_normal_map(const GpuMat& vertex_map, GpuMat& normal_map);
 
-void surface_measurement(PreprocessedData& data,
-                         const int& num_layers,
-                         const int& kernel_size,
-                         const float& sigma_color,
-                         const float& sigma_spatial,
-                         const CameraIntrinsics& camera_params,
-                         const float& max_depth){
+void surface_measurement(
+    PreprocessedData& data,
+    const int& num_layers, const int& kernel_size, const float& sigma_color, const float& sigma_spatial,
+    const CameraIntrinsics& camera_params, const float& max_depth
+){
     //assert (num_layers > 0);
     //PreprocessedData data(num_layers);
     //data.depth_pyramid[0].upload(raw_depth_map);
