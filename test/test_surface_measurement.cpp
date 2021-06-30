@@ -33,27 +33,13 @@ int main(int argc, char **argv)
     
     camera_params.img_height = depth.rows;
     camera_params.img_width = depth.cols;
-
+    
     // declare data pyramids
     assert (config.num_layers > 0);
     PreprocessedData data(config.num_layers);
-    
-    // Allocate GPU memory
-    data.color_map = cv::cuda::createContinuous(camera_params.img_height, camera_params.img_width, CV_8UC3);
-    data.color_map.upload(img);
-    for (int i = 0; i < config.num_layers; i++) {
-        const int width = camera_params.getCameraIntrinsics(i).img_width;
-        const int height = camera_params.getCameraIntrinsics(i).img_height;
-        data.depth_pyramid[i] = cv::cuda::createContinuous(height, width, CV_32FC1);
-        data.filtered_depth_pyramid[i] = cv::cuda::createContinuous(height, width, CV_32FC1);
-        data.vertex_pyramid[i] = cv::cuda::createContinuous(height, width, CV_32FC3);
-        data.normal_pyramid[i] = cv::cuda::createContinuous(height, width, CV_32FC3);
-    }
-    
-    data.depth_pyramid[0].upload(depth);
 
     // Compute surface measurement
-    surface_measurement(data, config.num_layers, config.kernel_size, config.sigma_color, config.sigma_spatial, camera_params, config.max_depth);
+    surface_measurement(data, depth, img, config.num_layers, config.kernel_size, config.sigma_color, config.sigma_spatial, camera_params, config.max_depth);
     
     cv::Mat vertex, normal;
     data.vertex_pyramid[0].download(vertex);
