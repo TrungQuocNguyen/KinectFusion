@@ -55,10 +55,11 @@ int main(int argc, char **argv)
     // Compute surface measurement
     surface_measurement(data, config.num_layers, config.kernel_size, config.sigma_color, config.sigma_spatial, camera_params, config.max_depth);
     
-    cv::Mat vertex;
+    cv::Mat vertex, normal;
     data.vertex_pyramid[0].download(vertex);
+    data.normal_pyramid[0].download(normal);
     data.depth_pyramid[0].download(depth);
-    //std::cout << "Size ( data.vertex_pyramid[0]): " << vertex << std::endl;
+    //std::cout << "Size ( data.normal_pyramid[2]): " << normal << std::endl;
 
     // safe images for comparison
     cv::imwrite("rgb.png", img);
@@ -73,6 +74,7 @@ int main(int argc, char **argv)
     myWindow.showWidget("Coordinate Widget", cv::viz::WCoordinateSystem());
 
     // Show point cloud
+    //cv::viz::WCloud pointCloud(normal, cv::viz::Color::green());
     cv::viz::WCloud pointCloud(vertex/128.f, cv::viz::Color::green());
     myWindow.showWidget("points", pointCloud);
 

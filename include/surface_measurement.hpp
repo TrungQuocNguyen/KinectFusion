@@ -43,7 +43,7 @@ void surface_measurement(PreprocessedData& data,
     for (size_t i = 0; i < num_layers; i++)
     {
         compute_vertex_map(data.filtered_depth_pyramid[i], data.vertex_pyramid[i], camera_params.getCameraIntrinsics(i), max_depth);
-        //compute_normal_map(data.vertex_pyramid[i], data.normal_pyramid[i]);
+        compute_normal_map(data.vertex_pyramid[i], data.normal_pyramid[i]);
     }
 
 }
