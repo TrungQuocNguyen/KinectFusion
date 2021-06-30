@@ -9,7 +9,6 @@
 #include <datatypes.hpp>
 
 
-// TODO: get camera matrix
 class Dataset {
 public:
 	int size() { return size_; }
@@ -25,6 +24,12 @@ public:
 		img = cv::imread(imgs_filenames_[index], cv::IMREAD_COLOR);
 		depth = cv::imread(depths_filenames_[index], cv::IMREAD_UNCHANGED);
 		depth.convertTo(depth, CV_32F, 1.f / 5000.f);
+	}
+
+	inline Eigen::Matrix4f getPose(const int index)
+	{
+		assert(0 <= index && index < size_);
+		return gt_poses_[index];		
 	}
 
 protected:

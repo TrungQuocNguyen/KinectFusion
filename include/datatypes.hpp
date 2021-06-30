@@ -1,8 +1,10 @@
 #pragma once
 
+#include <cuda_runtime.h>
 #include <opencv2/core/cuda.hpp>
 
 using cv::cuda::GpuMat;
+
 
 struct Configuration
 {
@@ -17,6 +19,7 @@ struct Configuration
 
 };
 
+
 struct PreprocessedData
 {
     std::vector<GpuMat> depth_pyramid;
@@ -29,6 +32,7 @@ struct PreprocessedData
 
     PreprocessedData(const size_t& size): depth_pyramid(size), filtered_depth_pyramid(size), vertex_pyramid(size), normal_pyramid(size) {} // set number of subsampled pyramid layers 
 };
+
 
 struct CameraIntrinsics
 {
@@ -55,5 +59,22 @@ struct CameraIntrinsics
                                     fx * scale_factor, fy * scale_factor,
                                     (cx + 0.5f) * scale_factor - 0.5f,
                                     (cy + 0.5f) * scale_factor - 0.5f };
+    }
+};
+
+
+struct VolumeData {
+    GpuMat tsdf_volume;
+    GpuMat color_volume;
+    int3 volume_size;
+    float voxel_scale;
+
+    VolumeData(const int3 _volume_size, const float _voxel_scale) :
+        tsdf_volume(cv::cuda::createContinuous(_volume_size.y * _volume_size.z, _volume_size.x, CV_16SC2)),
+        color_volume(cv::cuda::createContinuous(_volume_size.y * _volume_size.z, _volume_size.x, CV_8UC3)),
+        volume_size(_volume_size), voxel_scale(_voxel_scale)
+    {
+        tsdf_volume.setTo(0);
+        color_volume.setTo(0);
     }
 };
