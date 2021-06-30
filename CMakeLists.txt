@@ -11,11 +11,11 @@ find_package(OpenCV REQUIRED)
 include_directories(${OpenCV_INCLUDE_DIRS})
 link_libraries(${OpenCV_LIBS})
 
+file(GLOB KERNELS ${PROJECT_SOURCE_DIR}/cuda/*.cu)
 include_directories(${PROJECT_SOURCE_DIR}/include)
 
 add_executable(test_dataset "./test/test_dataset.cpp")
 
-file( GLOB  cu  "./cuda/surface_measurement.cu")
-cuda_add_executable(test_surface_measurement "./test/test_surface_measurement.cpp" ${cu})
+cuda_add_executable(test_surface_measurement "./test/test_surface_measurement.cpp" ${KERNELS})
 
 add_executable(kinectfusion "./kinectfusion.cpp")
