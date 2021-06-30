@@ -1,16 +1,25 @@
+#include "cuda_runtime.h"
+#include <opencv2/core/cuda.hpp>
+#include <opencv2/cudev/common.hpp>
+#include <Eigen/Core>
 #include "datatypes.hpp"
-#include <opencv2/cudev.hpp>
+
 using cv::cuda::PtrStepSz;
-typedef Eigen::Matrix<float, 3, 1, Eigen::DontAlign> Vector3f_da;
+using Vector2i_da = Eigen::Matrix<int, 2, 1, Eigen::DontAlign>;
+using Vector3f_da = Eigen::Matrix<float, 3, 1, Eigen::DontAlign>;
+using Matrix3f_da = Eigen::Matrix<float, 3, 3, Eigen::DontAlign>;
+
+constexpr float DIVSHORTMAX = 0.0000305185f; //1.f / SHRT_MAX;
+constexpr int SHORTMAX = 32767; //SHRT_MAX;
+constexpr int MAX_WEIGHT = 128;
 
 
-__global__
-void update_tsdf_kernel(
+__global__ void update_tsdf_kernel(
     const PtrStepSz<float> depth, const PtrStepSz<uchar3> color,
-    PtrStepSz<short2> tsdf_volume, PtrStepSz<uchar3> color_volume,
-    int3 volume_size, float voxel_scale,
-    CameraIntrinsics cam_params, const float truncation_distance,
-    Eigen::Matrix<float, 3, 3, Eigen::DontAlign> rotation, Vector3f translation
+    const int3 volume_size, const float voxel_scale,
+    const CameraIntrinsics cam_params, const float truncation_distance,
+    const Matrix3f_da rotation, const Vector3f_da translation,
+    PtrStepSz<short2> tsdf_volume, PtrStepSz<uchar3> color_volume
 ) {
     const int x = blockIdx.x * blockDim.x + threadIdx.x;
     const int y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -27,25 +36,26 @@ void update_tsdf_kernel(
         if (camera_pos.z() <= 0)
             continue;
 
-        const Vec2ida uv(
-                __float2int_rn(camera_pos.x() / camera_pos.z() * cam_params.focal_x + cam_params.principal_x),
-                __float2int_rn(camera_pos.y() / camera_pos.z() * cam_params.focal_y + cam_params.principal_y));
+        const Vector2i_da uv(
+            __float2int_rn(camera_pos.x() / camera_pos.z() * cam_params.fx + cam_params.cx),
+            __float2int_rn(camera_pos.y() / camera_pos.z() * cam_params.fy + cam_params.cy)
+        );
 
-        if (uv.x() < 0 || uv.x() >= depth_image.cols || uv.y() < 0 || uv.y() >= depth_image.rows)
+        if (uv.x() < 0 || uv.x() >= depth.cols || uv.y() < 0 || uv.y() >= depth.rows)
             continue;
 
-        const float depth = depth_image.ptr(uv.y())[uv.x()];
+        const float d = depth.ptr(uv.y())[uv.x()];
 
-        if (depth <= 0)
+        if (d <= 0)
             continue;
 
-        const Vec3fda xylambda(
+        const Vector3f_da xylambda(
                 (uv.x() - cam_params.cx) / cam_params.fx,
                 (uv.y() - cam_params.cy) / cam_params.fy,
                 1.f);
         const float lambda = xylambda.norm();
 
-        const float sdf = (-1.f) * ((1.f / lambda) * camera_pos.norm() - depth);
+        const float sdf = (-1.f) * ((1.f / lambda) * camera_pos.norm() - d);
 
         if (sdf >= -truncation_distance) {
             const float new_tsdf = fmin(1.f, sdf / truncation_distance);
@@ -58,27 +68,29 @@ void update_tsdf_kernel(
             const int add_weight = 1;
 
             const float updated_tsdf = (current_weight * current_tsdf + add_weight * new_tsdf) /
-                                        (current_weight + add_weight);
+                (current_weight + add_weight);
 
             const int new_weight = min(current_weight + add_weight, MAX_WEIGHT);
             const int new_value = max(-SHORTMAX, min(SHORTMAX, static_cast<int>(updated_tsdf * SHORTMAX)));
 
-            tsdf_volume.ptr(z * volume_size.y + y)[x] = make_short2(static_cast<short>(new_value),
-                                                                    static_cast<short>(new_weight));
+            tsdf_volume.ptr(z * volume_size.y + y)[x] = make_short2(
+                static_cast<short>(new_value),
+                static_cast<short>(new_weight)
+            );
 
             if (sdf <= truncation_distance / 2 && sdf >= -truncation_distance / 2) {
                 uchar3& model_color = color_volume.ptr(z * volume_size.y + y)[x];
-                const uchar3 image_color = color_image.ptr(uv.y())[uv.x()];
+                const uchar3 image_color = color.ptr(uv.y())[uv.x()];
 
                 model_color.x = static_cast<uchar>(
-                        (current_weight * model_color.x + add_weight * image_color.x) /
-                        (current_weight + add_weight));
+                    (current_weight * model_color.x + add_weight * image_color.x) /
+                    (current_weight + add_weight));
                 model_color.y = static_cast<uchar>(
-                        (current_weight * model_color.y + add_weight * image_color.y) /
-                        (current_weight + add_weight));
+                    (current_weight * model_color.y + add_weight * image_color.y) /
+                    (current_weight + add_weight));
                 model_color.z = static_cast<uchar>(
-                        (current_weight * model_color.z + add_weight * image_color.z) /
-                        (current_weight + add_weight));
+                    (current_weight * model_color.z + add_weight * image_color.z) /
+                    (current_weight + add_weight));
             }
         }
     }
@@ -87,21 +99,24 @@ void update_tsdf_kernel(
 
 void surface_reconstruction(
     const cv::cuda::GpuMat& depth, const cv::cuda::GpuMat& color,
-    VolumeData& volume,
     const CameraIntrinsics& cam_params, const float truncation_distance,
-    const Eigen::Matrix4f& T_c_w
+    const Eigen::Matrix4f& T_c_w,
+    VolumeData& volume
 )
 {
     const dim3 threads(32, 32);
-    const dim3 blocks((volume.volume_size.x + threads.x - 1) / threads.x,
-                        (volume.volume_size.y + threads.y - 1) / threads.y);
+    const dim3 blocks(
+        cv::cudev::divUp(volume.volume_size.x, threads.x),
+        cv::cudev::divUp(volume.volume_size.y, threads.y)
+    );
 
     update_tsdf_kernel<<<blocks, threads>>>(
-        depth, color_image,
-        volume.tsdf_volume, volume.color_volume,
+        depth, color,
         volume.volume_size, volume.voxel_scale,
         cam_params, truncation_distance,
-        T_c_w.block(0, 0, 3, 3), T_c_w.block(0, 3, 3, 1));
+        T_c_w.block(0, 0, 3, 3), T_c_w.block(0, 3, 3, 1),
+        volume.tsdf_volume, volume.color_volume
+    );
 
-    cudaThreadSynchronize();
+    // cudaThreadSynchronize();
 }
