@@ -52,12 +52,14 @@ struct CameraIntrinsics
     }
 
     // get camera parameters at certain pyramid level
-    CameraIntrinsics getCameraIntrinsics(const int layer){
+    CameraIntrinsics getCameraIntrinsics(const int layer) const {
         if (layer == 0) return *this;
 
         const float scale_factor = powf(0.5f, static_cast<float>(layer));
-        return (CameraIntrinsics) { img_width >> layer, img_height >> layer,
-                                    fx * scale_factor, fy * scale_factor,
+        return (CameraIntrinsics) { img_width >> layer,
+                                    img_height >> layer,
+                                    fx * scale_factor,
+                                    fy * scale_factor,
                                     (cx + 0.5f) * scale_factor - 0.5f,
                                     (cy + 0.5f) * scale_factor - 0.5f };
     }
