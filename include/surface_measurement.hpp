@@ -9,17 +9,33 @@
 #include "datatypes.hpp"
 
 // Forward declarartions
-void compute_vertex_map(const GpuMat& depth_map, GpuMat& vertex_map, const CameraIntrinsics cam_params, const float max_depth);
+void compute_vertex_map(const GpuMat& depth_map, GpuMat& vertex_map, const CameraIntrinsics camera_params, const float max_depth);
 void compute_normal_map(const GpuMat& vertex_map, GpuMat& normal_map);
 
-void surface_measurement(
-    PreprocessedData& data,
-    const int& num_layers, const int& kernel_size, const float& sigma_color, const float& sigma_spatial,
-    const CameraIntrinsics& camera_params, const float& max_depth
-){
-    //assert (num_layers > 0);
-    //PreprocessedData data(num_layers);
-    //data.depth_pyramid[0].upload(raw_depth_map);
+void surface_measurement(PreprocessedData& data,
+                         const cv::Mat& depth,
+                         const cv::Mat& img,
+                         const int& num_layers,
+                         const int& kernel_size,
+                         const float& sigma_color,
+                         const float& sigma_spatial,
+                         const CameraIntrinsics& camera_params,
+                         const float& max_depth){
+    
+    // Allocate GPU memory
+    data.color_map = cv::cuda::createContinuous(camera_params.img_height, camera_params.img_width, CV_8UC3);
+    for (int i = 0; i < num_layers; i++) {
+        const int width = camera_params.getCameraIntrinsics(i).img_width;
+        const int height = camera_params.getCameraIntrinsics(i).img_height;
+        data.depth_pyramid[i] = cv::cuda::createContinuous(height, width, CV_32FC1);
+        data.filtered_depth_pyramid[i] = cv::cuda::createContinuous(height, width, CV_32FC1);
+        data.vertex_pyramid[i] = cv::cuda::createContinuous(height, width, CV_32FC3);
+        data.normal_pyramid[i] = cv::cuda::createContinuous(height, width, CV_32FC3);
+    }
+
+    data.depth_pyramid[0].upload(depth);
+    data.color_map.upload(img);
+
     if (!data.depth_pyramid[0].isContinuous()){ 
         data.depth_pyramid[0] = data.depth_pyramid[0].clone();
     }
@@ -41,7 +57,7 @@ void surface_measurement(
     for (size_t i = 0; i < num_layers; i++)
     {
         compute_vertex_map(data.filtered_depth_pyramid[i], data.vertex_pyramid[i], camera_params.getCameraIntrinsics(i), max_depth);
-        //compute_normal_map(data.vertex_pyramid[i], data.normal_pyramid[i]);
+        compute_normal_map(data.vertex_pyramid[i], data.normal_pyramid[i]);
     }
 
 }

@@ -1,7 +1,10 @@
 #include <iostream>
 #include <string>
+
+
 #include <opencv2/core/cuda.hpp>
 #include <opencv2/opencv.hpp>
+#include <opencv2/viz/viz3d.hpp>
 
 #include "dataset.hpp"
 #include "surface_measurement.hpp"
@@ -9,7 +12,8 @@
 
 #include <opencv2/surface_matching/ppf_helpers.hpp>
 
-using Vec3fda = Eigen::Matrix<float, 3, 1, Eigen::DontAlign>;
+using namespace cv;
+using namespace std;
 
 int main(int argc, char **argv)
 {
@@ -20,47 +24,47 @@ int main(int argc, char **argv)
 
     cv::Mat img, depth;
     
-    // camera paramerters
-    CameraIntrinsics camera_params;
-    tum_dataset.getCameraParameters(camera_params.fx, camera_params.fy, camera_params.cx, camera_params.cy);
+    CameraIntrinsics camera_params = tum_dataset.getCameraIntrinsics();
 
-    size_t index = 230;   // index for choosing frame in dataset
+    size_t index = 10;   // index for choosing frame in dataset
     tum_dataset.getData(index, img, depth);
     
     depth *= 128.f; // this is only for debug depth image (0.1f for imshow; 128.f for imwrite)
     
     camera_params.img_height = depth.rows;
     camera_params.img_width = depth.cols;
-
+    
     // declare data pyramids
     assert (config.num_layers > 0);
     PreprocessedData data(config.num_layers);
-    
-    // Allocate GPU memory
-    data.color_map = cv::cuda::createContinuous(camera_params.img_height, camera_params.img_width, CV_8UC3);
-    data.color_map.upload(img);
-    for (int i = 0; i < config.num_layers; i++) {
-        const int width = camera_params.getCameraIntrinsics(i).img_width;
-        const int height = camera_params.getCameraIntrinsics(i).img_height;
-        data.depth_pyramid[i] = cv::cuda::createContinuous(height, width, CV_32FC1);
-        data.filtered_depth_pyramid[i] = cv::cuda::createContinuous(height, width, CV_32FC1);
-        data.vertex_pyramid[i] = cv::cuda::createContinuous(height, width, CV_32FC3);
-        data.normal_pyramid[i] = cv::cuda::createContinuous(height, width, CV_32FC3);
-    }
-    
-    data.depth_pyramid[0].upload(depth);
 
     // Compute surface measurement
-    surface_measurement(data, config.num_layers, config.kernel_size, config.sigma_color, config.sigma_spatial, camera_params, config.max_depth);
+    surface_measurement(data, depth, img, config.num_layers, config.kernel_size, config.sigma_color, config.sigma_spatial, camera_params, config.max_depth);
     
-    // safe images for comparison
-    cv::Mat vertex;
-    //std::cout << "Size ( data.depth_pyramid[0]): " << data.vertex_pyramid[0].size() << std::endl;
-    data.depth_pyramid[0].download(depth);
+    cv::Mat vertex, normal;
     data.vertex_pyramid[0].download(vertex);
+    data.normal_pyramid[0].download(normal);
+    data.depth_pyramid[0].download(depth);
+    //std::cout << "Size ( data.normal_pyramid[2]): " << normal << std::endl;
+
+    // safe images for comparison
+    cv::imwrite("rgb.png", img);
     cv::imwrite("depth.png", depth);
     cv::imwrite("vertex.png", vertex);
-    //std::cout << "Size (vertex): " << vertex.size() << std::endl;
-    
-    //cv::ppf_match_3d::writePLY(vertex,"vertex.ply");	
+
+    // Create a window
+    cv::viz::Viz3d myWindow("Viz Demo");
+    myWindow.setBackgroundColor(cv::viz::Color::black());
+
+    // Show coordinate system
+    myWindow.showWidget("Coordinate Widget", cv::viz::WCoordinateSystem());
+
+    // Show point cloud
+    //cv::viz::WCloud pointCloud(normal, cv::viz::Color::green());
+    cv::viz::WCloud pointCloud(vertex/128.f, cv::viz::Color::green());
+    myWindow.showWidget("points", pointCloud);
+
+    // Start event loop (run until user terminates it by pressing e, E, q, Q)
+    myWindow.spin();
+    std::cout << "First event loop is over" << std::endl;
 }
