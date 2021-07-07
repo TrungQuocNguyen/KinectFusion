@@ -8,6 +8,7 @@ using cv::cuda::GpuMat;
 
 struct Configuration
 {
+    Configuration(){}
     Configuration(const int num_layers, const int kernel_size, const float sigma_color, const float sigma_spatial, const float max_depth) :
         num_layers(num_layers), kernel_size(kernel_size), sigma_color(sigma_color), sigma_spatial(sigma_spatial), max_depth(max_depth) {}
     // sub-sampling: Number of pyramid layers for each data frame

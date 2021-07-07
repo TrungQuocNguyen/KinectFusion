@@ -20,15 +20,14 @@ int main()
     float truncation_distance {0.25f};
     VolumeData volume;
 
-    for (int index = 0; index < 1 /*dataset.size()*/; ++index)
+    for (int index = 0; index < 4 /*dataset.size()*/; ++index)
     {
         cv::Mat img, depth;
         dataset.getData(index, img, depth);
         Eigen::Matrix4f T_c_w = dataset.getPose(index);  // world -> cam
 
         PreprocessedData data(num_levels);
-        data.depth_pyramid[0].upload(depth);
-        surface_measurement(data, num_levels, kernel_size, sigma_color, sigma_spatial, cam_intrinsics, 8.f);
+        surface_measurement(data, depth, img, num_levels, kernel_size, sigma_color, sigma_spatial, cam_intrinsics, 8.f);
         surface_reconstruction(data.depth_pyramid[0], cam_intrinsics, truncation_distance, T_c_w, volume);
     }
 }
