@@ -67,17 +67,20 @@ struct CameraIntrinsics
 };
 
 
-struct VolumeData {
-    GpuMat tsdf_volume;  // (volume_size * volume_size, volume_size)
+struct TSDFData {
+    // GpuMat only supports 2D
+    // (volume_size * volume_size, volume_size) short2
+    GpuMat tsdf;  // (F, W)
+
     int3 volume_size;
     float voxel_scale;
 
-    VolumeData() {}
+    TSDFData() {}
     
-    VolumeData(const int3 _volume_size, const float _voxel_scale) :
-        tsdf_volume(cv::cuda::createContinuous(_volume_size.y * _volume_size.z, _volume_size.x, CV_16SC2)),
+    TSDFData(const int3 _volume_size, const float _voxel_scale) :
+        tsdf(cv::cuda::createContinuous(_volume_size.y * _volume_size.z, _volume_size.x, CV_16SC2)),
         volume_size(_volume_size), voxel_scale(_voxel_scale)
     {
-        tsdf_volume.setTo(0);
+        tsdf.setTo(0);
     }
 };

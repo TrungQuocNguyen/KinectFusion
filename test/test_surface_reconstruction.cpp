@@ -4,8 +4,9 @@
 
 void surface_reconstruction(
     const cv::cuda::GpuMat& depth, 
-    const CameraIntrinsics& cam_params, const float truncation_distance,
+    const CameraIntrinsics& cam_params,
     const Eigen::Matrix4f& T_c_w,
+    const float truncation_distance,
     VolumeData& volume
 );
 
@@ -18,7 +19,7 @@ int main()
     float sigma_color {1.f};
     float sigma_spatial {1.f};
     float truncation_distance {0.25f};
-    VolumeData volume;
+    TSDFData tsdf_data;
 
     for (int index = 0; index < 4 /*dataset.size()*/; ++index)
     {
@@ -28,6 +29,6 @@ int main()
 
         PreprocessedData data(num_levels);
         surface_measurement(data, depth, img, num_levels, kernel_size, sigma_color, sigma_spatial, cam_intrinsics, 8.f);
-        surface_reconstruction(data.depth_pyramid[0], cam_intrinsics, truncation_distance, T_c_w, volume);
+        surface_reconstruction(data.depth_pyramid[0], cam_intrinsics, T_c_w, truncation_distance, tsdf_data);
     }
 }
