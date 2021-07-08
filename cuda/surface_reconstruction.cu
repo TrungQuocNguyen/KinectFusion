@@ -17,30 +17,30 @@ constexpr int MAX_WEIGHT = 128;
 __global__ void kernel_update_tsdf(
     const PtrStepSz<float> depth, 
     const CameraIntrinsics cam_params, 
-    const Matrix3f_da R_w_c, const Vector3f_da t_w_c,  // world <= current
+    const Matrix3f_da R_c_w, const Vector3f_da t_c_w,  // current <= world
     const int3 volume_size, const float voxel_scale,
     const float truncation_distance,
     PtrStepSz<short2> tsdf_volume
 ) {
-    const int x = blockIdx.x * blockDim.x + threadIdx.x;
-    const int y = blockIdx.y * blockDim.y + threadIdx.y;
+    const uint x = blockIdx.x * blockDim.x + threadIdx.x;
+    const uint y = blockIdx.y * blockDim.y + threadIdx.y;
 
     if (x >= volume_size.x || y >= volume_size.y) return;
 
     for (int z = 0; z < volume_size.z; ++z) {
         // 0.5f is for the centor of volume
-        const Vector3f_da pos_c(
+        const Vector3f_da pos_w(
             (static_cast<float>(x) + 0.5f - volume_size.x / 2.f) * voxel_scale,
             (static_cast<float>(y) + 0.5f - volume_size.y / 2.f) * voxel_scale,
             (static_cast<float>(z) + 0.5f - volume_size.z / 2.f) * voxel_scale
-        );  // voxel position in current coordinate
-        const Vector3f_da pos_w = R_w_c * pos_c + t_w_c;  // voxel position in world coordinate
-        if (pos_w[2] <= 0) continue;
+        );  // voxel position in world coordinate
+        const Vector3f_da pos_c = R_c_w * pos_w + t_c_w;  // voxel position in current coordinate
+        if (pos_c[2] <= 0) continue;
 
         const Vector2i_da uv(
-            __float2int_rn(pos_w[0] / pos_w[2] * cam_params.fx + cam_params.cx),
-            __float2int_rn(pos_w[1] / pos_w[2] * cam_params.fy + cam_params.cy)
-        );
+            __float2int_rn(pos_c[0] / pos_c[2] * cam_params.fx + cam_params.cx),
+            __float2int_rn(pos_c[1] / pos_c[2] * cam_params.fy + cam_params.cy)
+        );  // project on current frame
         if (uv[0] < 0 || uv[0] >= depth.cols || uv[1] < 0 || uv[1] >= depth.rows) continue;
 
         const float d = depth.ptr(uv[1])[uv[0]];
@@ -48,15 +48,13 @@ __global__ void kernel_update_tsdf(
 
         const Vector3f_da lambda_vec(pos_w[0] / pos_w[2], pos_w[1] / pos_w[2], 1.f);
 
-        const float sdf = (t_w_c - pos_w).norm() / lambda_vec.norm() - d;
-        if (sdf < - truncation_distance) continue;
-        
-        const float tsdf = fmin(1.f, sdf / truncation_distance);  // F_R_k
-        const short weight = 1;  // W_R_k
+        const float sdf = (t_c_w - pos_w).norm() / lambda_vec.norm() - d;
+        const float tsdf = sdf > 0.f ? fmin(1.f, sdf / truncation_distance) : fmax(-1.f, sdf / truncation_distance);
+        const short weight = 1;
 
         const short2 model_voxel = tsdf_volume.ptr(z * volume_size.y + y)[x];  // (tsdf, weight)
-        const float model_tsdf = static_cast<float>(model_voxel.x) * INV_SHORT_MAX;  // F_{k-1}
-        const short model_weight = model_voxel.y;  // W_{k-1}
+        const float model_tsdf = static_cast<float>(model_voxel.x) * INV_SHORT_MAX;
+        const short model_weight = model_voxel.y;
 
         const float updated_tsdf = (model_weight * model_tsdf + weight * tsdf) / (model_weight + weight);
 
@@ -85,7 +83,7 @@ void surface_reconstruction(
     kernel_update_tsdf<<<blocks, threads>>>(
         depth,
         cam_params, 
-        T_c_w.block(0, 0, 3, 3).transpose(), - T_c_w.block(0, 0, 3, 3).transpose() * T_c_w.block(0, 3, 3, 1),
+        T_c_w.block(0, 0, 3, 3), T_c_w.block(0, 3, 3, 1),
         tsdf_data.volume_size, tsdf_data.voxel_scale,
         truncation_distance,
         tsdf_data.tsdf
