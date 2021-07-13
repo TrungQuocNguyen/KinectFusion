@@ -11,6 +11,7 @@
 
 class Dataset {
 public:
+	Dataset() {}
 	int size() { return size_; }
 
 	CameraIntrinsics getCameraIntrinsics()
@@ -33,8 +34,6 @@ public:
 	}
 
 protected:
-	Dataset() {}
-
 	CameraIntrinsics cam_;
 	float distortions_[5] = { 0 };
 
@@ -73,7 +72,7 @@ public:
 		{
 			std::stringstream ss(line);
 			Eigen::Matrix<float, 7, 1> tmp;
-			for (int i = 0; i < 4; ++i)
+			for (int i = 0; i < 12; ++i)
 			{
 				std::string s;
 				ss >> s;
@@ -162,6 +161,7 @@ public:
 			for (int i = 0; i < 8; ++i)
 			{
 				std::string s;
+				Eigen::Matrix<float, 7, 1> tmp;
 				ss >> s;
 				if (i == 0)
 				{
@@ -169,6 +169,15 @@ public:
 					imgs_filenames_.push_back(dataset_dir + "rgb/" + s + ".png");
 					depths_filenames_.push_back(dataset_dir + "depth/" + s + ".png");
 				}
+				else
+				{
+					tmp(i - 1) = std::stof(s);
+				}
+				Eigen::Quaternionf q(tmp(6), tmp(3), tmp(4), tmp(5));
+				Eigen::Matrix4f T = Eigen::Matrix4f::Identity();
+				T.block<3, 3>(0, 0) = q.toRotationMatrix();
+				T.block<3, 1>(0, 3) = tmp.head(3);
+				gt_poses_.push_back(T);
 			}
 			++count;
 		}
