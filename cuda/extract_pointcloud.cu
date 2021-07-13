@@ -56,14 +56,6 @@ void extract_points_kernel(
             if (is_surface_z) count++;
             int index = atomicAdd(point_num, count);
 
-            /*
-            Vector3f_da position(
-                (static_cast<float>(x) + 0.5f - volume_size.x / 2.f) * voxel_scale,
-                (static_cast<float>(y) + 0.5f - volume_size.y / 2.f) * voxel_scale,
-                (static_cast<float>(z) + 0.5f - volume_size.z / 2.f) * voxel_scale
-            );
-            */
-
             Vector3f_da position(
                 (static_cast<float>(x) + 0.5f) * voxel_scale,
                 (static_cast<float>(y) + 0.5f) * voxel_scale,

@@ -84,3 +84,48 @@ struct TSDFData {
         tsdf.setTo(0);
     }
 };
+
+
+struct PointCloud {
+    cv::Mat vertices, normals;
+    int num_points;
+};
+
+
+struct CloudData {
+    GpuMat vertices, normals;
+
+    int* point_num;
+    int host_point_num;
+
+    explicit CloudData(const int max_number) :
+        vertices{cv::cuda::createContinuous(1, max_number, CV_32FC3)},
+        normals{cv::cuda::createContinuous(1, max_number, CV_32FC3)},
+        point_num{nullptr}, host_point_num{}
+    {
+        vertices.setTo(0.f);
+        normals.setTo(0.f);
+
+        cudaMalloc(&point_num, sizeof(int));
+        cudaMemset(point_num, 0, sizeof(int));
+    }
+
+    // No copying
+    CloudData(const CloudData&) = delete;
+    CloudData& operator=(const CloudData& data) = delete;
+
+    PointCloud download()
+    {
+        cv::Mat host_vertices, host_normals;
+        vertices.download(host_vertices);
+        normals.download(host_normals);
+
+        cudaMemcpy(&host_point_num, point_num, sizeof(int), cudaMemcpyDeviceToHost);
+
+        PointCloud pc;
+        pc.vertices = host_vertices;
+        pc.normals = host_normals;
+        pc.num_points = host_point_num;
+        return pc;
+    }
+};
