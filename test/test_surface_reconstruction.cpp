@@ -50,7 +50,7 @@ int main()
     float sigma_spatial {1.f};
     float truncation_distance {10.f};
     TSDFData tsdf_data(make_int3(1024, 1024, 512), 10.f);
-    Eigen::Matrix4f T_c_w = Eigen::Matrix4f::Identity();
+    Eigen::Matrix4f current_pose = Eigen::Matrix4f::Identity();
     for (int index = 0; index < dataset.size(); ++index)
     {
         cv::Mat img, depth;
@@ -59,15 +59,16 @@ int main()
         
         if (index != 0)
         {
+            // get ground truth pose
             Eigen::Matrix4f rel_pose = dataset.getPose(index - 1).inverse() * dataset.getPose(index);
             rel_pose.block<3, 1>(0, 3) *= 1000.f;  // m -> mm
-            T_c_w = T_c_w * rel_pose;
+            current_pose = current_pose * rel_pose;
         }
 
         PreprocessedData data(num_levels);
         surface_measurement(data, depth, img, num_levels, kernel_size, sigma_color, sigma_spatial, cam_intrinsics, 4000.f);
 
-        surface_reconstruction(data.depth_pyramid[0], cam_intrinsics, T_c_w, truncation_distance, tsdf_data);
+        surface_reconstruction(data.depth_pyramid[0], cam_intrinsics, current_pose, truncation_distance, tsdf_data);
     }
 
     PointCloud pc = extract_points(tsdf_data, 3 * 1000000);
