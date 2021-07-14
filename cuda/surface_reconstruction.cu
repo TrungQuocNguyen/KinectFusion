@@ -16,8 +16,7 @@ constexpr int MAX_WEIGHT = 128;
 
 __global__ void kernel_update_tsdf(
     const PtrStepSz<float> depth, 
-    const CameraIntrinsics cam_params, 
-    const Matrix3f_da R_c_w, const Vector3f_da t_c_w,  // current <= world
+    const CameraIntrinsics cam, const Matrix3f_da R_c_w, const Vector3f_da t_c_w,
     const int3 volume_size, const float voxel_scale,
     const float truncation_distance,
     PtrStepSz<short2> tsdf_volume
@@ -39,24 +38,32 @@ __global__ void kernel_update_tsdf(
         if (pos_c[2] <= 0) continue;
 
         const Vector2i_da uv(
-            __float2int_rn(pos_c[0] / pos_c[2] * cam_params.fx + cam_params.cx),
-            __float2int_rn(pos_c[1] / pos_c[2] * cam_params.fy + cam_params.cy)
+            __float2int_rn(pos_c[0] / pos_c[2] * cam.fx + cam.cx),
+            __float2int_rn(pos_c[1] / pos_c[2] * cam.fy + cam.cy)
         );  // project on current frame
         if (uv[0] < 0 || uv[0] >= depth.cols || uv[1] < 0 || uv[1] >= depth.rows) continue;
 
         const float d = depth.ptr(uv[1])[uv[0]];
-        if (d <= 150.f) continue;  // in mm
+        if (d <= 50.f) continue;  // in mm
 
         const Vector3f_da lambda_vec(
-            (uv[0] - cam_params.cx) / cam_params.fx, 
-            (uv[1] - cam_params.cy) / cam_params.fy,
+            (uv[0] - cam.cx) / cam.fx, 
+            (uv[1] - cam.cy) / cam.fy,
             1.f
         );
 
-        const float sdf = - (pos_c.norm() / lambda_vec.norm() - d);
+        const float sdf = d - pos_c.norm() / lambda_vec.norm();
         if (sdf < - truncation_distance) continue;
 
-        const float tsdf = fmin(1.f, sdf / truncation_distance);
+        float tsdf;
+        if (sdf < 0)
+        {
+            tsdf = fmin(-1.f, sdf / truncation_distance);
+        }
+        else
+        {
+            tsdf = fmax(1.f, sdf / truncation_distance);
+        }
         const short weight = 1;
 
         const short2 model_voxel = tsdf_volume.ptr(z * volume_size.y + y)[x];  // (tsdf, weight)
@@ -75,8 +82,7 @@ __global__ void kernel_update_tsdf(
 
 void surface_reconstruction(
     const cv::cuda::GpuMat& depth,
-    const CameraIntrinsics& cam_params,
-    const Eigen::Matrix4f T_c_w,  // current <= world
+    const CameraIntrinsics& cam, const Eigen::Matrix4f T_c_w,
     const float truncation_distance,
     TSDFData& tsdf_data
 )
@@ -87,7 +93,7 @@ void surface_reconstruction(
         cv::cudev::divUp(tsdf_data.volume_size.y, threads.y)
     );
     kernel_update_tsdf<<<blocks, threads>>>(
-        depth, cam_params, 
+        depth, cam, 
         T_c_w.block<3, 3>(0, 0).transpose(), - T_c_w.block<3, 3>(0, 0).transpose() * T_c_w.block<3, 1>(0, 3),
         tsdf_data.volume_size, tsdf_data.voxel_scale,
         truncation_distance,
