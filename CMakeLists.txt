@@ -12,7 +12,7 @@ include_directories(${OpenCV_INCLUDE_DIRS})
 link_libraries(${OpenCV_LIBS})
 
 include_directories(${PROJECT_SOURCE_DIR}/include/)
-file(GLOB KERNELS ${PROJECT_SOURCE_DIR}/cuda/*.cu)
+file(GLOB KERNELS ${PROJECT_SOURCE_DIR}/src/cuda/*.cu)
 
 add_executable(test_dataset "./test/test_dataset.cpp")
 
@@ -22,4 +22,4 @@ cuda_add_executable(test_surface_reconstruction "./test/test_surface_reconstruct
 
 cuda_add_executable(test_surface_prediction "./test/test_surface_prediction.cpp" ${KERNELS})
 
-add_executable(kinectfusion "./kinectfusion.cpp")
+add_executable(kinectfusion "./src/kinectfusion.cpp")

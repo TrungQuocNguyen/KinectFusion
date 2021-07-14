@@ -1,10 +1,11 @@
+#include "config.hpp"
 #include "dataset.hpp"
 #include "datatypes.hpp"
 #include "surface_measurement.hpp"
 
 void surface_reconstruction(
     const cv::cuda::GpuMat& depth, 
-    const CameraIntrinsics& cam_params,
+    const CameraParameters& cam,
     const Eigen::Matrix4f T_c_w,
     const float truncation_distance,
     TSDFData& volume
@@ -38,14 +39,14 @@ void export_ply(const std::string& filename, const PointCloud& point_cloud)
 
 int main()
 {
-    Dataset dataset;
-    std::string dataset_dir = "../data/TUMRGBD/";
-    std::string dataset_name = "rgbd_dataset_freiburg1_floor";
-    dataset = TUMRGBDDataset(dataset_dir + dataset_name + "/", TUMRGBDDataset::TUMRGBD::FREIBURG1);
+    if (Config::setParameterFile("../data/kinfu_tumrgbd.yaml") == false) return -1;
 
-    CameraIntrinsics cam_intrinsics = dataset.getCameraIntrinsics();
-    size_t num_levels {3};
-    size_t kernel_size {9};
+    std::string dataset_dir = config::get<std::string>("dataset_dir");
+    Dataset dataset = TUMRGBDDataset(dataset_dir, config::get<TUMRGBDDataset::TUMRGBD>("tumrgbd"));
+    auto cam = dataset.getCameraParameters();
+
+    int num_levels = config::get<int>("num_levels");
+    int kernel_size = config::get<int>("bf_kernel_size");
     float sigma_color {1.f};
     float sigma_spatial {1.f};
     float truncation_distance {10.f};
@@ -66,9 +67,9 @@ int main()
         }
 
         PreprocessedData data(num_levels);
-        surface_measurement(data, depth, img, num_levels, kernel_size, sigma_color, sigma_spatial, cam_intrinsics, 4000.f);
+        surface_measurement(data, depth, img, num_levels, kernel_size, sigma_color, sigma_spatial, cam, 4000.f);
 
-        surface_reconstruction(data.depth_pyramid[0], cam_intrinsics, current_pose, truncation_distance, tsdf_data);
+        surface_reconstruction(data.depth_pyramid[0], cam, current_pose, truncation_distance, tsdf_data);
     }
 
     PointCloud pc = extract_points(tsdf_data, 3 * 1000000);

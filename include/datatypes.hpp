@@ -25,49 +25,46 @@ struct Configuration
 struct PreprocessedData
 {
     std::vector<GpuMat> depth_pyramid;
-    std::vector<GpuMat> filtered_depth_pyramid;
-    //std::vector<GpuMat> color_pyramid;              //TODO: check if this is needed
-    GpuMat color_map;
-
     std::vector<GpuMat> vertex_pyramid;
     std::vector<GpuMat> normal_pyramid;
 
-    PreprocessedData(const size_t& size): depth_pyramid(size), filtered_depth_pyramid(size), vertex_pyramid(size), normal_pyramid(size) {} // set number of subsampled pyramid layers 
+    GpuMat color_map;
+
+    PreprocessedData(const size_t& size): depth_pyramid(size), vertex_pyramid(size), normal_pyramid(size) {}
 };
 
 
-struct CameraIntrinsics
+struct CameraParameters
 {
-    int img_width, img_height;
-    float fx, fy, cx, cy;       // focal lengths and center point
+    int width, height;
+    float fx, fy, cx, cy;  // focal lengths and center point
+    float min_depth, max_depth;  // minimum and maximum depth of the depth sensor
 
     // Constructor
-    CameraIntrinsics() {}
-    CameraIntrinsics(const int& img_width_, const int& img_height_, const float& fx_, const float& fy_, const float& cx_, const float& cy_){
-        img_width = img_width_;
-        img_height = img_height_;
-        fx = fx_;
-        fy = fy_;
-        cx = cx_;
-        cy = cy_;
-    }
+    CameraParameters() {}
+    CameraParameters(
+        const int &width, const int &height, 
+        const float& fx, const float& fy, const float& cx, const float& cy,
+        const float min_depth = 150.f, const float max_depth = 6000.f
+    ) : width(width), height(height), fx(fx), fy(fy), cx(cx), cy(cy), min_depth(min_depth), max_depth(max_depth) {}
 
     // get camera parameters at certain pyramid level
-    CameraIntrinsics getCameraIntrinsics(const int layer) const {
+    CameraParameters getCameraParameters(const int layer) const 
+    {
         if (layer == 0) return *this;
 
-        const float scale_factor = powf(0.5f, static_cast<float>(layer));
-        return (CameraIntrinsics) { img_width >> layer,
-                                    img_height >> layer,
-                                    fx * scale_factor,
-                                    fy * scale_factor,
-                                    (cx + 0.5f) * scale_factor - 0.5f,
-                                    (cy + 0.5f) * scale_factor - 0.5f };
+        const int scale_factor = 1 << layer;
+        return CameraParameters(
+            width >> layer, height >> layer, 
+            fx / scale_factor, fy / scale_factor, cx / scale_factor, cy / scale_factor,
+            min_depth, max_depth
+        );
     }
 };
 
 
-struct TSDFData {
+struct TSDFData
+{
     // GpuMat only supports 2D
     // (volume_size * volume_size, volume_size) short2
     GpuMat tsdf;  // (F, W)
@@ -86,13 +83,15 @@ struct TSDFData {
 };
 
 
-struct PointCloud {
+struct PointCloud
+{
     cv::Mat vertices, normals;
     int num_points;
 };
 
 
-struct CloudData {
+struct CloudData
+{
     GpuMat vertices, normals;
 
     int* point_num;

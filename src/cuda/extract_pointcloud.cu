@@ -16,7 +16,8 @@ void extract_points_kernel(
     const int3 volume_size, const float voxel_scale,
     PtrStepSz<float3> vertices, PtrStepSz<float3> normals,
     int *point_num
-) {
+)
+{
     const int x = blockIdx.x * blockDim.x + threadIdx.x;
     const int y = blockIdx.y * blockDim.y + threadIdx.y;
 

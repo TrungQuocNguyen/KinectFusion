@@ -16,7 +16,7 @@ constexpr int MAX_WEIGHT = 128;
 
 __global__ void kernel_update_tsdf(
     const PtrStepSz<float> depth, 
-    const CameraIntrinsics cam, const Matrix3f_da R_c_w, const Vector3f_da t_c_w,
+    const CameraParameters cam, const Matrix3f_da R_c_w, const Vector3f_da t_c_w,
     const int3 volume_size, const float voxel_scale,
     const float truncation_distance,
     PtrStepSz<short2> tsdf_volume
@@ -82,7 +82,7 @@ __global__ void kernel_update_tsdf(
 
 void surface_reconstruction(
     const cv::cuda::GpuMat& depth,
-    const CameraIntrinsics& cam, const Eigen::Matrix4f T_c_w,
+    const CameraParameters& cam, const Eigen::Matrix4f T_c_w,
     const float truncation_distance,
     TSDFData& tsdf_data
 )

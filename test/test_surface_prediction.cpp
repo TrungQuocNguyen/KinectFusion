@@ -1,4 +1,5 @@
 #include <opencv2/viz/viz3d.hpp>
+#include "config.hpp"
 #include "dataset.hpp"
 #include "datatypes.hpp"
 #include "surface_measurement.hpp"
@@ -6,7 +7,7 @@
 
 void surface_prediction(
     const TSDFData &volume,
-    const CameraIntrinsics &cam,
+    const CameraParameters &cam,
     const Eigen::Matrix4f T_c_w,
     const float trancation_distance,
     GpuMat &vertex_map, GpuMat &normal_map
@@ -15,25 +16,26 @@ void surface_prediction(
 
 void surface_reconstruction(
     const cv::cuda::GpuMat& depth, 
-    const CameraIntrinsics& cam_params,
+    const CameraParameters& cam,
     const Eigen::Matrix4f T_c_w,
     const float truncation_distance,
     TSDFData& volume
 );
 
 
-struct ModelData {
+struct ModelData 
+{
     std::vector<GpuMat> vertex_pyramid;
     std::vector<GpuMat> normal_pyramid;
 
-    ModelData(const size_t num_levels, const CameraIntrinsics cam) :
+    ModelData(const size_t num_levels, const CameraParameters cam) :
             vertex_pyramid(num_levels), normal_pyramid(num_levels)
     {
         for (size_t level = 0; level < num_levels; ++level)
         {
-            auto scale_cam = cam.getCameraIntrinsics(level);
-            vertex_pyramid[level] = cv::cuda::createContinuous(scale_cam.img_height, scale_cam.img_width, CV_32FC3);
-            normal_pyramid[level] = cv::cuda::createContinuous(scale_cam.img_height, scale_cam.img_width, CV_32FC3);
+            auto scaled_cam = cam.getCameraParameters(level);
+            vertex_pyramid[level] = cv::cuda::createContinuous(scaled_cam.height, scaled_cam.width, CV_32FC3);
+            normal_pyramid[level] = cv::cuda::createContinuous(scaled_cam.height, scaled_cam.width, CV_32FC3);
             vertex_pyramid[level].setTo(0);
             normal_pyramid[level].setTo(0);
         }
@@ -59,10 +61,12 @@ struct ModelData {
 
 int main()
 {
-    Dataset dataset;
-    dataset = TUMRGBDDataset("../data/TUMRGBD/rgbd_dataset_freiburg1_desk/", TUMRGBDDataset::TUMRGBD::FREIBURG1);
+    if (Config::setParameterFile("../data/kinfu_tumrgbd.yaml") == false) return -1;
 
-    CameraIntrinsics cam = dataset.getCameraIntrinsics();
+    std::string dataset_dir = Config::get<std::string>("dataset_dir");
+    Dataset dataset = TUMRGBDDataset(dataset_dir, static_cast<TUMRGBDDataset::TUMRGBD>(Config::get<int>("tumrgbd")));
+
+    auto cam = dataset.getCameraParameters();
     Eigen::Matrix4f current_pose = Eigen::Matrix4f::Identity();
 
     // visualization to check normals and vertices
@@ -78,12 +82,12 @@ int main()
     cv::viz::WCameraPosition wcam(K, 1.0, cv::viz::Color::red());
     my_window.showWidget("cam", wcam);
 
-    int num_levels {3};
-    int kernel_size {9};
-    float sigma_color {1.f};
-    float sigma_spatial {1.f};
-    float truncation_distance {10.f};
-    TSDFData tsdf_data(make_int3(1024, 1024, 512), 10.f);
+    int num_levels {Config::get<int>("num_levels")};
+    int kernel_size {Config::get<int>("bf_kernel_size")};
+    float sigma_color {Config::get<float>("bf_sigma_color")};
+    float sigma_spatial {Config::get<float>("bf_sigma_spatial")};
+    float truncation_distance {Config::get<float>("truncation_distance")};
+    TSDFData tsdf_data(make_int3(Config::get<int>("tsdf_size_x"), Config::get<int>("tsdf_size_y"), Config::get<int>("tsdf_size_z")), Config::get<int>("tsdf_scale"));
     ModelData model_data(num_levels, cam);
     for (int index = 0; index < dataset.size(); ++index)
     {
@@ -107,7 +111,7 @@ int main()
         for (int level = 0; level < num_levels; ++level)
         {
             surface_prediction(
-                tsdf_data, cam.getCameraIntrinsics(level), current_pose,
+                tsdf_data, cam.getCameraParameters(level), current_pose,
                 truncation_distance,
                 model_data.vertex_pyramid[level], model_data.normal_pyramid[level]
             );

@@ -14,7 +14,7 @@ public:
 	Dataset() {}
 	int size() { return size_; }
 
-	CameraIntrinsics getCameraIntrinsics()
+	CameraParameters getCameraParameters()
 	{
 		return cam_;
 	}
@@ -34,7 +34,7 @@ public:
 	}
 
 protected:
-	CameraIntrinsics cam_;
+	CameraParameters cam_;
 	float distortions_[5] = { 0 };
 
 	int size_;  // the number of images
@@ -60,7 +60,7 @@ protected:
 class TUMRGBDDataset : public Dataset
 {
 public:
-	enum class TUMRGBD { FREIBURG1, FREIBURG2, FREIBURG3 };
+	enum class TUMRGBD { FREIBURG1 = 1, FREIBURG2 = 2, FREIBURG3 = 3 };
 
 	TUMRGBDDataset(const std::string dataset_dir, TUMRGBD tumrgbd)
 	{
@@ -105,7 +105,7 @@ private:
 		switch (tumrgbd)
 		{
 		case TUMRGBD::FREIBURG1:
-			cam_ = CameraIntrinsics(640, 480, 517.3f, 516.5f, 318.6f, 255.3f);
+			cam_ = CameraParameters(640, 480, 517.3f, 516.5f, 318.6f, 255.3f);
 			distortions_[0] = 0.2624f;
 			distortions_[1] = -0.9531f;
 			distortions_[2] = -0.0054f;
@@ -113,7 +113,7 @@ private:
 			distortions_[4] = 1.1633f;
 			break;
 		case TUMRGBD::FREIBURG2:
-			cam_ = CameraIntrinsics(640, 480, 520.9f, 521.0f, 325.1f, 249.7f);
+			cam_ = CameraParameters(640, 480, 520.9f, 521.0f, 325.1f, 249.7f);
 			distortions_[0] = 0.2312f;
 			distortions_[1] = -0.7849f;
 			distortions_[2] = -0.0033f;
@@ -121,7 +121,7 @@ private:
 			distortions_[4] = 0.9172f;
 			break;
 		case TUMRGBD::FREIBURG3:
-			cam_ = CameraIntrinsics(640, 480, 535.4f, 539.2f, 320.1f, 247.6f);
+			cam_ = CameraParameters(640, 480, 535.4f, 539.2f, 320.1f, 247.6f);
 			break;
 		default:
 			throw std::exception();
@@ -150,7 +150,7 @@ public:
 
 	ICLNUIMDataset(std::string dataset_dir, ICLNUIM iclnuim)
 	{
-		cam_ = CameraIntrinsics(640, 480, 481.2f, -480.f, 319.5f, 239.5f);
+		cam_ = CameraParameters(640, 480, 481.2f, -480.f, 319.5f, 239.5f);
 
 		std::ifstream ifs(dataset_dir + getPoseFilename(iclnuim));
 		std::string line;

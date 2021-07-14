@@ -67,7 +67,7 @@ float get_max_time(const float3& volume_max, const Vector3f_da& origin, const Ve
 
 __global__ void kernel_raycast_tsdf(
     const PtrStepSz<short2> tsdf_volume,
-    const CameraIntrinsics cam, const Matrix3f_da rotation, const Vector3f_da translation,
+    const CameraParameters cam, const Matrix3f_da rotation, const Vector3f_da translation,
     const int3 volume_size, const float voxel_scale, const float truncation_distance,
     PtrStepSz<float3> vertex_map, PtrStepSz<float3> normal_map
 ) {
@@ -179,7 +179,7 @@ __global__ void kernel_raycast_tsdf(
 
 void surface_prediction(
     const TSDFData &tsdf_data,
-    const CameraIntrinsics &cam,
+    const CameraParameters &cam,
     const Eigen::Matrix4f T_c_w,
     const float trancation_distance,
     cv::cuda::GpuMat &vertex_map, cv::cuda::GpuMat &normal_map

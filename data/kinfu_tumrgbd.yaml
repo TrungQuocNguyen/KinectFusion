@@ -1,19 +1,19 @@
 %YAML:1.0
 
 # Dataset
-dataset_dir: "../data/TUMRGBD/rgbd_dataset_freiburg1_desk/"
+dataset_dir: "../data/TUMRGBD/rgbd_dataset_freiburg1_desk2/"
 tumrgbd: 1  # freiburg 1, 2, 3
 
 # Parameters
 num_levels: 3
 
 # -- bilateral filter
-bf_kernel_size: 7
+bf_kernel_size: 9
 bf_sigma_color: 1.
 bf_sigma_spatial: 1.
 
-truncation_distance: 20.  # mm
+truncation_distance: 5.  # mm
 tsdf_size_x: 1024
 tsdf_size_y: 1024
-tsdf_size_y: 512
+tsdf_size_z: 512
 tsdf_scale: 10.  # mm
