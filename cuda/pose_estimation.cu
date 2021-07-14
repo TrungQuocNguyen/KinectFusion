@@ -101,7 +101,7 @@ void kernel_estimate(const Matrix3f_da rotation,
 }
 
 
-void estimate_step(const Matrix3f_da& rotation, const Vector3f_da& translation,
+void estimation(const Matrix3f_da& rotation, const Vector3f_da& translation,
     const cv::cuda::GpuMat& vertex_map, const cv::cuda::GpuMat& normal_map,
     const Matrix3f_da& prev_rotation_inv, const Vector3f_da& prev_translation,
     const CameraIntrinsics& cam_params,
