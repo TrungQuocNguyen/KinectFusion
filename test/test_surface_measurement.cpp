@@ -1,21 +1,13 @@
-#include <iostream>
-#include <string>
-
-
-#include <opencv2/core/cuda.hpp>
-#include <opencv2/opencv.hpp>
 #include <opencv2/viz/viz3d.hpp>
-
+#include "utils.hpp"
 #include "dataset.hpp"
 #include "surface_measurement.hpp"
 #include "datatypes.hpp"
 
-#include <opencv2/surface_matching/ppf_helpers.hpp>
-
 using namespace cv;
 using namespace std;
 
-int main(int argc, char **argv)
+int main()
 {
     // The first argument should be the path to the dataset directory
     // The second argument should be whether the dataset is freiburg 1, 2, or 3.
@@ -33,13 +25,13 @@ int main(int argc, char **argv)
     cv::Mat img, depth;
 
     size_t index = 10;   // index for choosing frame in dataset
-    tum_dataset.getData(index, img, depth);
+    dataset.getData(index, img, depth);
     
     // declare data pyramids
-    PreprocessedData data(config.num_layers);
+    PreprocessedData data(config.num_layers, cam);
 
     // Compute surface measurement
-    surface_measurement(data, depth, img, config.num_layers, config.kernel_size, config.sigma_color, config.sigma_spatial, cam, config.max_depth);
+    surface_measurement(depth, img, config.num_layers, config.kernel_size, config.sigma_color, config.sigma_spatial, cam, data);
     
     cv::Mat vertex, normal;
     data.vertex_pyramid[0].download(vertex);
@@ -51,12 +43,6 @@ int main(int argc, char **argv)
     cv::imwrite("rgb.png", img);
     cv::imwrite("depth.png", depth);
     cv::imwrite("vertex.png", vertex);
-
-    // Create a window
-    cv::viz::Viz3d myWindow("Viz Demo");
-    myWindow.setBackgroundColor(cv::viz::Color::black());
-    // Show coordinate system
-    myWindow.showWidget("Coordinate Widget", cv::viz::WCoordinateSystem());
 
     // Show point cloud
     //cv::viz::WCloud pointCloud(normal, cv::viz::Color::green());

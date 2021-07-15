@@ -1,17 +1,9 @@
 #include <opencv2/viz/viz3d.hpp>
-#include "config.hpp"
+#include "utils.hpp"
 #include "dataset.hpp"
 #include "datatypes.hpp"
 #include "surface_measurement.hpp"
-
-
-void surface_prediction(
-    const TSDFData &volume,
-    const CameraParameters &cam,
-    const Eigen::Matrix4f T_c_w,
-    const float trancation_distance,
-    GpuMat &vertex_map, GpuMat &normal_map
-);
+#include "surface_prediction.hpp"
 
 
 void surface_reconstruction(
@@ -21,42 +13,6 @@ void surface_reconstruction(
     const float truncation_distance,
     TSDFData& volume
 );
-
-
-struct ModelData 
-{
-    std::vector<GpuMat> vertex_pyramid;
-    std::vector<GpuMat> normal_pyramid;
-
-    ModelData(const size_t num_levels, const CameraParameters cam) :
-            vertex_pyramid(num_levels), normal_pyramid(num_levels)
-    {
-        for (size_t level = 0; level < num_levels; ++level)
-        {
-            auto scaled_cam = cam.getCameraParameters(level);
-            vertex_pyramid[level] = cv::cuda::createContinuous(scaled_cam.height, scaled_cam.width, CV_32FC3);
-            normal_pyramid[level] = cv::cuda::createContinuous(scaled_cam.height, scaled_cam.width, CV_32FC3);
-            vertex_pyramid[level].setTo(0);
-            normal_pyramid[level].setTo(0);
-        }
-    }
-
-    // No copying
-    ModelData(const ModelData&) = delete;
-    ModelData& operator=(const ModelData& data) = delete;
-
-    ModelData(ModelData&& data) noexcept :
-            vertex_pyramid(std::move(data.vertex_pyramid)),
-            normal_pyramid(std::move(data.normal_pyramid))
-    { }
-
-    ModelData& operator=(ModelData&& data) noexcept
-    {
-        vertex_pyramid = std::move(data.vertex_pyramid);
-        normal_pyramid = std::move(data.normal_pyramid);
-        return *this;
-    }
-};
 
 
 int main()
@@ -89,12 +45,16 @@ int main()
     float truncation_distance {Config::get<float>("truncation_distance")};
     TSDFData tsdf_data(make_int3(Config::get<int>("tsdf_size_x"), Config::get<int>("tsdf_size_y"), Config::get<int>("tsdf_size_z")), Config::get<int>("tsdf_scale"));
     ModelData model_data(num_levels, cam);
+    PreprocessedData data(num_levels, cam);
+    double sum_t = 0.;
     for (int index = 0; index < dataset.size(); ++index)
     {
         cv::Mat img, depth;
         dataset.getData(index, img, depth);
         depth *= 1000.f;  // m -> mm
         
+        Timer timer("Frame " + std::to_string(index));
+
         if (index != 0)
         {
             // get ground truth pose
@@ -103,21 +63,21 @@ int main()
             current_pose = current_pose * rel_pose;
         }
 
-        PreprocessedData data(num_levels);
-        surface_measurement(data, depth, img, num_levels, kernel_size, sigma_color, sigma_spatial, cam, 4000.f);
-
+        surface_measurement(depth, img, num_levels, kernel_size, sigma_color, sigma_spatial, cam, data);
+        timer.print("Surface Measurement");
+        
         surface_reconstruction(data.depth_pyramid[0], cam, current_pose, truncation_distance, tsdf_data);
+        timer.print("Surface Reconstruction");
 
-        for (int level = 0; level < num_levels; ++level)
-        {
-            surface_prediction(
-                tsdf_data, cam.getCameraParameters(level), current_pose,
-                truncation_distance,
-                model_data.vertex_pyramid[level], model_data.normal_pyramid[level]
-            );
-        }
+        surface_prediction(
+            tsdf_data, cam, current_pose,
+            truncation_distance, num_levels,
+            model_data
+        );
+        timer.print("Surface Prediction");
 
-        std::cout << "frame : " << index << std::endl;
+        sum_t += timer.print();
+        std::cout << "[ FPS ] : " << (index + 1) * 1000.f / sum_t << std::endl;
 
         cv::Mat normals, vertices;
         model_data.normal_pyramid[0].download(normals);

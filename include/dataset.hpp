@@ -9,7 +9,8 @@
 #include <datatypes.hpp>
 
 
-class Dataset {
+class Dataset 
+{
 public:
 	Dataset() {}
 	int size() { return size_; }

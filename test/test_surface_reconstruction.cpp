@@ -41,17 +41,18 @@ int main()
 {
     if (Config::setParameterFile("../data/kinfu_tumrgbd.yaml") == false) return -1;
 
-    std::string dataset_dir = config::get<std::string>("dataset_dir");
-    Dataset dataset = TUMRGBDDataset(dataset_dir, config::get<TUMRGBDDataset::TUMRGBD>("tumrgbd"));
+    std::string dataset_dir = Config::get<std::string>("dataset_dir");
+    Dataset dataset = TUMRGBDDataset(dataset_dir, static_cast<TUMRGBDDataset::TUMRGBD>(Config::get<int>("tumrgbd")));
     auto cam = dataset.getCameraParameters();
 
-    int num_levels = config::get<int>("num_levels");
-    int kernel_size = config::get<int>("bf_kernel_size");
+    int num_levels = Config::get<int>("num_levels");
+    int kernel_size = Config::get<int>("bf_kernel_size");
     float sigma_color {1.f};
     float sigma_spatial {1.f};
     float truncation_distance {10.f};
     TSDFData tsdf_data(make_int3(1024, 1024, 512), 10.f);
     Eigen::Matrix4f current_pose = Eigen::Matrix4f::Identity();
+    PreprocessedData data(num_levels, cam);
     for (int index = 0; index < dataset.size(); ++index)
     {
         cv::Mat img, depth;
@@ -66,13 +67,13 @@ int main()
             current_pose = current_pose * rel_pose;
         }
 
-        PreprocessedData data(num_levels);
-        surface_measurement(data, depth, img, num_levels, kernel_size, sigma_color, sigma_spatial, cam, 4000.f);
+        surface_measurement(depth, img, num_levels, kernel_size, sigma_color, sigma_spatial, cam, data);
 
         surface_reconstruction(data.depth_pyramid[0], cam, current_pose, truncation_distance, tsdf_data);
     }
 
     PointCloud pc = extract_points(tsdf_data, 3 * 1000000);
+    int tmp = dataset_dir.rfind("/", dataset_dir.size() - 2);
+    std::string dataset_name = dataset_dir.substr(tmp + 1, dataset_dir.size() - tmp - 2);
     export_ply(dataset_name + ".ply", pc);
-    cv::Vec4f::ones();
 }

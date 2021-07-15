@@ -22,18 +22,6 @@ struct Configuration
 };
 
 
-struct PreprocessedData
-{
-    std::vector<GpuMat> depth_pyramid;
-    std::vector<GpuMat> vertex_pyramid;
-    std::vector<GpuMat> normal_pyramid;
-
-    GpuMat color_map;
-
-    PreprocessedData(const size_t& size): depth_pyramid(size), vertex_pyramid(size), normal_pyramid(size) {}
-};
-
-
 struct CameraParameters
 {
     int width, height;
@@ -59,6 +47,67 @@ struct CameraParameters
             fx / scale_factor, fy / scale_factor, cx / scale_factor, cy / scale_factor,
             min_depth, max_depth
         );
+    }
+};
+
+
+struct PreprocessedData
+{
+    std::vector<GpuMat> depth_pyramid;
+    std::vector<GpuMat> vertex_pyramid;
+    std::vector<GpuMat> normal_pyramid;
+
+    GpuMat color_map;
+
+    PreprocessedData(const int& num_layers, CameraParameters &cam) :
+        depth_pyramid(num_layers), vertex_pyramid(num_layers), normal_pyramid(num_layers)
+    {
+        color_map = cv::cuda::createContinuous(cam.height, cam.width, CV_8UC3);
+        for (int i = 0; i < num_layers; i++) 
+        {
+            auto scaled_cam = cam.getCameraParameters(i);
+            const int width = scaled_cam.width;
+            const int height = scaled_cam.height;
+            depth_pyramid[i] = cv::cuda::createContinuous(height, width, CV_32FC1);
+            vertex_pyramid[i] = cv::cuda::createContinuous(height, width, CV_32FC3);
+            normal_pyramid[i] = cv::cuda::createContinuous(height, width, CV_32FC3);
+        }
+    }
+};
+
+
+struct ModelData 
+{
+    std::vector<GpuMat> vertex_pyramid;
+    std::vector<GpuMat> normal_pyramid;
+
+    ModelData(const size_t num_levels, const CameraParameters cam) :
+            vertex_pyramid(num_levels), normal_pyramid(num_levels)
+    {
+        for (size_t level = 0; level < num_levels; ++level)
+        {
+            auto scaled_cam = cam.getCameraParameters(level);
+            vertex_pyramid[level] = cv::cuda::createContinuous(scaled_cam.height, scaled_cam.width, CV_32FC3);
+            normal_pyramid[level] = cv::cuda::createContinuous(scaled_cam.height, scaled_cam.width, CV_32FC3);
+            vertex_pyramid[level].setTo(0);
+            normal_pyramid[level].setTo(0);
+        }
+    }
+
+    // No copying
+    ModelData(const ModelData&) = delete;
+    ModelData& operator=(const ModelData& data) = delete;
+
+    ModelData(ModelData&& data) noexcept :
+            vertex_pyramid(std::move(data.vertex_pyramid)),
+            normal_pyramid(std::move(data.normal_pyramid))
+    { }
+
+    ModelData& operator=(ModelData&& data) noexcept
+    {
+        vertex_pyramid = std::move(data.vertex_pyramid);
+        normal_pyramid = std::move(data.normal_pyramid);
+        return *this;
     }
 };
 

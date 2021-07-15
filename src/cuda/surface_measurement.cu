@@ -2,27 +2,25 @@
 #include <opencv2/cudev/common.hpp>
 #include <datatypes.hpp>
 
-
+using cv::cuda::PtrStepSz;
 using cv::cuda::GpuMat;
 
 
 __global__ void kernel_compute_vertex_map(
-    const cv::cuda::PtrStepSz<float> depth_map, 
-    cv::cuda::PtrStepSz<float3> vertex_map, 
-    const CameraParameters cam, const float max_depth
+    const PtrStepSz<float> depth_map, const CameraParameters cam, PtrStepSz<float3> vertex_map
 )
 {
     // Calculate global row and column for each thread
     const int col = blockIdx.x * blockDim.x + threadIdx.x;
     const int row = blockIdx.y * blockDim.y + threadIdx.y;
 
-    if (col >= depth_map.cols || row >= depth_map.rows)
-        return;
+    if (col >= depth_map.cols || row >= depth_map.rows)return;
 
     float depth_val = depth_map(row, col);
 
     // Don't use depth values larger than max_depth
-    if (depth_val > max_depth){
+    if (depth_val > cam.max_depth || depth_val < cam.min_depth)
+    {
         depth_val = 0.f;
     } 
 
@@ -34,7 +32,8 @@ __global__ void kernel_compute_vertex_map(
     );
 }
 
-__global__ void kernel_compute_normal_map(cv::cuda::PtrStepSz<float3> vertex_map, cv::cuda::PtrStepSz<float3> normal_map)
+
+__global__ void kernel_compute_normal_map(PtrStepSz<float3> vertex_map, PtrStepSz<float3> normal_map)
 {
     // Calculate global row and column for each thread
     const int col = blockIdx.x * blockDim.x + threadIdx.x;
@@ -62,27 +61,28 @@ __global__ void kernel_compute_normal_map(cv::cuda::PtrStepSz<float3> vertex_map
     normal_map(row, col) = make_float3(cross_prod.x / norm, cross_prod.y / norm, cross_prod.z / norm);
 }
 
-void compute_vertex_map(const GpuMat& filtered_depth_map, GpuMat& vertex_map, const CameraParameters cam, const float max_depth)
+
+void compute_vertex_map(const GpuMat& filtered_depth_map, const CameraParameters cam, GpuMat& vertex_map)
 {
-    const dim3 threads(32, 32);
-    const dim3 blocks(
-        cv::cudev::divUp(filtered_depth_map.cols, threads.x),
-        cv::cudev::divUp(filtered_depth_map.rows, threads.y)
+    const dim3 blocks(32, 32);
+    const dim3 grid(
+        cv::cudev::divUp(filtered_depth_map.cols, blocks.x),
+        cv::cudev::divUp(filtered_depth_map.rows, blocks.y)
     );
-    kernel_compute_vertex_map<<<blocks, threads>>>(filtered_depth_map, vertex_map, cam, max_depth);
+    kernel_compute_vertex_map<<<grid, blocks>>>(filtered_depth_map, cam, vertex_map);
 
     cudaDeviceSynchronize();
 }
+
 
 void compute_normal_map(const GpuMat& vertex_map, GpuMat& normal_map)
 {
-    const dim3 threads(32, 32);
-    const dim3 blocks(
-        cv::cudev::divUp(vertex_map.cols, threads.x),
-        cv::cudev::divUp(vertex_map.rows, threads.y)
+    const dim3 blocks(32, 32);
+    const dim3 grid(
+        cv::cudev::divUp(vertex_map.cols, blocks.x),
+        cv::cudev::divUp(vertex_map.rows, blocks.y)
     );
-    kernel_compute_normal_map<<<blocks, threads>>>(vertex_map, normal_map);
+    kernel_compute_normal_map<<<grid, blocks>>>(vertex_map, normal_map);
 
     cudaDeviceSynchronize();
 }
-

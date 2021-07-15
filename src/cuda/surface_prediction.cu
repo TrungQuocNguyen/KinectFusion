@@ -54,6 +54,7 @@ float get_min_time(const float3& volume_max, const Vector3f_da& origin, const Ve
     return fmax(fmax(txmin, tymin), tzmin);
 }
 
+
 __device__ __forceinline__
 float get_max_time(const float3& volume_max, const Vector3f_da& origin, const Vector3f_da& direction)
 {
@@ -177,12 +178,12 @@ __global__ void kernel_raycast_tsdf(
     }
 }
 
-void surface_prediction(
+void raycast_tsdf(
     const TSDFData &tsdf_data,
     const CameraParameters &cam,
     const Eigen::Matrix4f T_c_w,
     const float trancation_distance,
-    cv::cuda::GpuMat &vertex_map, cv::cuda::GpuMat &normal_map
+    GpuMat &vertex_map, GpuMat &normal_map
 )
 {
     vertex_map.setTo(0);
