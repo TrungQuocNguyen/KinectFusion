@@ -6,12 +6,24 @@ tumrgbd: 1  # freiburg 1, 2, 3
 
 # Parameters
 num_levels: 3
+flag_use_gt_pose: 1
 
-# -- bilateral filter
-bf_kernel_size: 9
+max_depth: 4000.
+min_depth: 120.
+
+# ----- bilateral filter
+bf_kernel_size: 11
 bf_sigma_color: 1.
 bf_sigma_spatial: 1.
 
+# ----- icp
+icp_distance_threshold: 10.
+icp_angle_threshold: 20.
+icp_iteration_0: 10
+icp_iteration_1: 5
+icp_iteration_2: 4
+
+# ---- tsdf
 truncation_distance: 5.  # mm
 tsdf_size_x: 1024
 tsdf_size_y: 1024
