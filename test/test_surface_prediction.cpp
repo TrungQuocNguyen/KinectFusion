@@ -69,11 +69,24 @@ int main()
         surface_reconstruction(data.depth_pyramid[0], cam, current_pose, truncation_distance, tsdf_data);
         timer.print("Surface Reconstruction");
 
-        surface_prediction(
-            tsdf_data, cam, current_pose,
-            truncation_distance, num_levels,
-            model_data
-        );
+        bool flag_use_depth = !true;
+        if (flag_use_depth)
+        {
+            surface_prediction_using_depth(
+                tsdf_data, data.depth_pyramid, cam, current_pose,
+                truncation_distance, num_levels,
+                model_data
+            );
+        }
+        else
+        {
+            surface_prediction(
+                tsdf_data, cam, current_pose,
+                truncation_distance, num_levels,
+                model_data
+            );
+        }
+        
         timer.print("Surface Prediction");
 
         sum_t += timer.print();
