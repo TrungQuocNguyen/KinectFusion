@@ -111,7 +111,7 @@ void compute_pose_estimate(
                 const GpuMat& pred_vertex_map, 
                 const GpuMat& pred_normal_map, 
                 const GpuMat& valid_vertex_mask, 
-                const Eigen::Matrix4f T_g_k, 
+                const Eigen::Matrix4f &T_g_k, 
                 Eigen::Matrix<float, 6, 6, Eigen::RowMajor>& left, 
                 Eigen::Matrix<float, 6, 1>& right, 
                 const float& threshold_dist, 
