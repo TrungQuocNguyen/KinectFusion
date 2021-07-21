@@ -23,11 +23,13 @@ void surface_measurement(
     data.color_map.upload(img);
     
     cv::cuda::Stream stream;
+
     // Step 1: Subsample depth (and color image???) to get pyramids (different scales of the images)
     for (int i = 0; i < num_layers - 1; i++)
     {
         cv::cuda::pyrDown(data.depth_pyramid[i], data.depth_pyramid[i+1], stream);
     }
+    
     // Step 2: Smooth the depth image with bilateral filtering
     for (int i = 0; i < num_layers; i++)
     {
