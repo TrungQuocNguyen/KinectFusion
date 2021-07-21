@@ -86,47 +86,20 @@ struct TSDFData {
     }
 };
 
+struct PoseEstimateData {
+    float alpha;
+    float beta;
+    float gamma;
 
-struct PointCloud {
-    cv::Mat vertices, normals;
-    int num_points;
-};
+    int3 volume_size;
+    float voxel_scale;
 
-
-struct CloudData {
-    GpuMat vertices, normals;
-
-    int* point_num;
-    int host_point_num;
-
-    explicit CloudData(const int max_number) :
-        vertices{cv::cuda::createContinuous(1, max_number, CV_32FC3)},
-        normals{cv::cuda::createContinuous(1, max_number, CV_32FC3)},
-        point_num{nullptr}, host_point_num{}
+    PoseEstimateData() {}
+    
+    PoseEstimateData(const int3 _volume_size, const float _voxel_scale) :
+        tsdf(cv::cuda::createContinuous(_volume_size.y * _volume_size.z, _volume_size.x, CV_16SC2)),
+        volume_size(_volume_size), voxel_scale(_voxel_scale)
     {
-        vertices.setTo(0.f);
-        normals.setTo(0.f);
-
-        cudaMalloc(&point_num, sizeof(int));
-        cudaMemset(point_num, 0, sizeof(int));
-    }
-
-    // No copying
-    CloudData(const CloudData&) = delete;
-    CloudData& operator=(const CloudData& data) = delete;
-
-    PointCloud download()
-    {
-        cv::Mat host_vertices, host_normals;
-        vertices.download(host_vertices);
-        normals.download(host_normals);
-
-        cudaMemcpy(&host_point_num, point_num, sizeof(int), cudaMemcpyDeviceToHost);
-
-        PointCloud pc;
-        pc.vertices = host_vertices;
-        pc.normals = host_normals;
-        pc.num_points = host_point_num;
-        return pc;
+        tsdf.setTo(0);
     }
 };

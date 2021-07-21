@@ -22,4 +22,6 @@ cuda_add_executable(test_surface_reconstruction "./test/test_surface_reconstruct
 
 cuda_add_executable(test_surface_prediction "./test/test_surface_prediction.cpp" ${KERNELS})
 
+cuda_add_executable(test_pose_estimate "./test/test_pose_estimate.cpp" ${KERNELS})
+
 add_executable(kinectfusion "./kinectfusion.cpp")

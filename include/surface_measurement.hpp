@@ -9,7 +9,7 @@
 #include "datatypes.hpp"
 
 // Forward declarartions
-void compute_vertex_map(const GpuMat& depth_map, GpuMat& vertex_map, const CameraIntrinsics camera_params, const float max_depth);
+void compute_vertex_map(const GpuMat& depth_map, GpuMat& vertex_map, GpuMat& valid_vertex_mask, const CameraIntrinsics camera_params, const float max_depth);
 void compute_normal_map(const GpuMat& vertex_map, GpuMat& normal_map);
 
 void surface_measurement(PreprocessedData& data,
@@ -31,6 +31,7 @@ void surface_measurement(PreprocessedData& data,
         data.filtered_depth_pyramid[i] = cv::cuda::createContinuous(height, width, CV_32FC1);
         data.vertex_pyramid[i] = cv::cuda::createContinuous(height, width, CV_32FC3);
         data.normal_pyramid[i] = cv::cuda::createContinuous(height, width, CV_32FC3);
+        data.valid_vertex_mask[i] = cv::cuda::createContinuous(height, width, CV_8U);
     }
 
     data.depth_pyramid[0].upload(depth);
@@ -42,21 +43,21 @@ void surface_measurement(PreprocessedData& data,
     
     cv::cuda::Stream stream;
     // Step 1: Subsample depth (and color image???) to get pyramids (different scales of the images)
-    for (size_t i = 0; i < num_layers - 1; i++)
+    for (int i = 0; i < num_layers - 1; i++)
     {
         cv::cuda::pyrDown(data.depth_pyramid[i], data.depth_pyramid[i+1], stream);
     }
     // Step 2: Smooth the depth image with bilateral filtering
-    for (size_t i = 0; i < num_layers; i++)
+    for (int i = 0; i < num_layers; i++)
     {
         cv::cuda::bilateralFilter(data.depth_pyramid[i], data.filtered_depth_pyramid[i], kernel_size, sigma_color, sigma_spatial, cv::BORDER_DEFAULT, stream);
     }
     stream.waitForCompletion();    
 
     // Step 3: Compute vertex and normal maps 
-    for (size_t i = 0; i < num_layers; i++)
+    for (int i = 0; i < num_layers; i++)
     {
-        compute_vertex_map(data.filtered_depth_pyramid[i], data.vertex_pyramid[i], camera_params.getCameraIntrinsics(i), max_depth);
+        compute_vertex_map(data.filtered_depth_pyramid[i], data.vertex_pyramid[i], data.valid_vertex_mask[i], camera_params.getCameraIntrinsics(i), max_depth);
         compute_normal_map(data.vertex_pyramid[i], data.normal_pyramid[i]);
     }
 
