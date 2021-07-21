@@ -1,4 +1,4 @@
-#include "config.hpp"
+#include "utils.hpp"
 #include "dataset.hpp"
 #include "datatypes.hpp"
 #include "surface_measurement.hpp"
@@ -45,12 +45,13 @@ int main()
     Dataset dataset = TUMRGBDDataset(dataset_dir, static_cast<TUMRGBDDataset::TUMRGBD>(Config::get<int>("tumrgbd")));
     auto cam = dataset.getCameraParameters();
 
-    int num_levels = Config::get<int>("num_levels");
-    int kernel_size = Config::get<int>("bf_kernel_size");
-    float sigma_color {1.f};
-    float sigma_spatial {1.f};
-    float truncation_distance {10.f};
-    TSDFData tsdf_data(make_int3(1024, 1024, 512), 10.f);
+
+    int num_levels {Config::get<int>("num_levels")};
+    int kernel_size {Config::get<int>("bf_kernel_size")};
+    float sigma_color {Config::get<float>("bf_sigma_color")};
+    float sigma_spatial {Config::get<float>("bf_sigma_spatial")};
+    float truncation_distance {Config::get<float>("truncation_distance")};
+    TSDFData tsdf_data(make_int3(Config::get<int>("tsdf_size_x"), Config::get<int>("tsdf_size_y"), Config::get<int>("tsdf_size_z")), Config::get<int>("tsdf_scale"));
     Eigen::Matrix4f current_pose = Eigen::Matrix4f::Identity();
     PreprocessedData data(num_levels, cam);
     for (int index = 0; index < dataset.size(); ++index)
@@ -68,7 +69,6 @@ int main()
         }
 
         surface_measurement(depth, img, num_levels, kernel_size, sigma_color, sigma_spatial, cam, data);
-
         surface_reconstruction(data.depth_pyramid[0], cam, current_pose, truncation_distance, tsdf_data);
     }
 

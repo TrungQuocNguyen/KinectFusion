@@ -1,20 +1,20 @@
 %YAML:1.0
 
 # Dataset
-dataset_dir: "../data/TUMRGBD/rgbd_dataset_freiburg1_desk2/"
-tumrgbd: 1  # freiburg 1, 2, 3
+dataset_dir: "../data/TUMRGBD/rgbd_dataset_freiburg3_walking_halfsphere/"
+tumrgbd: 3  # freiburg 1, 2, 3
 
 # Parameters
 num_levels: 3
 flag_use_gt_pose: 1
 
-max_depth: 4000.
-min_depth: 120.
+max_depth: 6000.
+min_depth: 200.
 
 # ----- bilateral filter
 bf_kernel_size: 11
-bf_sigma_color: 1.
-bf_sigma_spatial: 1.
+bf_sigma_color: 50.
+bf_sigma_spatial: 7.
 
 # ----- icp
 icp_distance_threshold: 10.
@@ -24,7 +24,7 @@ icp_iteration_1: 5
 icp_iteration_2: 4
 
 # ---- tsdf
-truncation_distance: 5.  # mm
+truncation_distance: 25.  # mm
 tsdf_size_x: 1024
 tsdf_size_y: 1024
 tsdf_size_z: 512

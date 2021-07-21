@@ -24,7 +24,8 @@ __global__ void kernel_update_tsdf(
     const uint x = blockIdx.x * blockDim.x + threadIdx.x;
     const uint y = blockIdx.y * blockDim.y + threadIdx.y;
 
-    if (x >= volume_size.x || y >= volume_size.y) return;
+    uint roi = 25;
+    if (x < roi || x >= volume_size.x - roi || y < roi || y >= volume_size.y - roi) return;
 
     for (int z = 0; z < volume_size.z; ++z) {
         // 0.5f is for the centor of volume
@@ -44,16 +45,12 @@ __global__ void kernel_update_tsdf(
         if (uv[0] < 0 || uv[0] >= depth.cols || uv[1] < 0 || uv[1] >= depth.rows) continue;
 
         const float d = depth.ptr(uv[1])[uv[0]];
-        if (d <= 50.f) continue;  // in mm
+        if (d < cam.min_depth || d > cam.max_depth) continue;  // in mm
 
-        const Vector3f_da lambda_vec(
-            (uv[0] - cam.cx) / cam.fx, 
-            (uv[1] - cam.cy) / cam.fy,
-            1.f
-        );
+        const Vector3f_da lambda_vec((uv[0] - cam.cx) / cam.fx, (uv[1] - cam.cy) / cam.fy, 1.f);
 
         const float sdf = d - pos_c.norm() / lambda_vec.norm();
-        if (sdf < - truncation_distance) continue;
+        if (sdf < - truncation_distance) break;
 
         float tsdf;
         if (sdf < 0)
