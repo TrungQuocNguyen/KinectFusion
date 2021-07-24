@@ -4,4 +4,5 @@ include/Eigen
 /.vs
 
 data/TUMRGBD
-data/[^[template]].yaml
+data/*.yaml
+!data/template.yaml

@@ -63,7 +63,7 @@ class TUMRGBDDataset : public Dataset
 public:
 	enum class TUMRGBD { FREIBURG1 = 1, FREIBURG2 = 2, FREIBURG3 = 3 };
 
-	TUMRGBDDataset(const std::string &dataset_dir, TUMRGBD &tumrgbd)
+	TUMRGBDDataset(const std::string &dataset_dir, TUMRGBD tumrgbd)
 	{
 		setCameraIntrinsics(tumrgbd);
 
@@ -107,7 +107,7 @@ public:
 	}
 
 private:
-	void setCameraIntrinsics(TUMRGBD &tumrgbd)
+	void setCameraIntrinsics(TUMRGBD tumrgbd)
 	{
 		switch (tumrgbd)
 		{
@@ -155,7 +155,7 @@ public:
 		OF_KT3,
 	};
 
-	ICLNUIMDataset(std::string &dataset_dir, ICLNUIM &iclnuim)
+	ICLNUIMDataset(std::string &dataset_dir, ICLNUIM iclnuim)
 	{
 		cam_ = CameraParameters(640, 480, 481.2f, -480.f, 319.5f, 239.5f);
 
@@ -199,7 +199,7 @@ public:
 	}
 
 private:
-	std::string getPoseFilename(ICLNUIM &iclnuim)
+	std::string getPoseFilename(ICLNUIM iclnuim)
 	{
 		switch (iclnuim)
 		{
