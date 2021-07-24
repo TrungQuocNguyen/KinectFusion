@@ -1,8 +1,7 @@
 *build*/
 .vscode
-data/TUMRGBD
 include/Eigen
-/.vs/CMake Overview
-/.vs/KinectFusion/v16
 /.vs
-data/[^template].yaml
+
+data/TUMRGBD
+data/[^[template]].yaml
