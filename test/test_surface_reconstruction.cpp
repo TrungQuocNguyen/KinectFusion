@@ -6,8 +6,8 @@
 void surface_reconstruction(
     const cv::cuda::GpuMat& depth, 
     const CameraParameters& cam,
-    const Eigen::Matrix4f T_c_w,
-    const float truncation_distance,
+    const Eigen::Matrix4f& T_c_w,
+    const float& truncation_distance,
     TSDFData& volume
 );
 

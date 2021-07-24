@@ -1,17 +1,5 @@
-#include "cuda_runtime.h"
-#include <opencv2/core/cuda.hpp>
-#include <opencv2/cudev/common.hpp>
-#include <Eigen/Core>
-#include "datatypes.hpp"
-
-using cv::cuda::PtrStepSz;
-using Vector2i_da = Eigen::Matrix<int, 2, 1, Eigen::DontAlign>;
-using Vector3f_da = Eigen::Matrix<float, 3, 1, Eigen::DontAlign>;
-using Matrix3f_da = Eigen::Matrix<float, 3, 3, Eigen::DontAlign>;
-
-constexpr int SHORT_MAX = 32767;
-constexpr float INV_SHORT_MAX = 0.0000305185f;  // 1.f / SHORT_MAX;
-constexpr int MAX_WEIGHT = 128;
+#include <cuda/kernel_common.cuh>
+#include <datatypes.hpp>
 
 
 __global__ void kernel_update_tsdf(
@@ -20,11 +8,12 @@ __global__ void kernel_update_tsdf(
     const int3 volume_size, const float voxel_scale,
     const float truncation_distance,
     PtrStepSz<short2> tsdf_volume
-) {
+) 
+{
     const uint x = blockIdx.x * blockDim.x + threadIdx.x;
     const uint y = blockIdx.y * blockDim.y + threadIdx.y;
 
-    uint roi = 25;
+    uint roi = 10;
     if (x < roi || x >= volume_size.x - roi || y < roi || y >= volume_size.y - roi) return;
 
     for (int z = 0; z < volume_size.z; ++z) {
@@ -72,6 +61,7 @@ __global__ void kernel_update_tsdf(
         const int new_tsdf = max(-SHORT_MAX, min(SHORT_MAX, static_cast<int>(updated_tsdf * SHORT_MAX)));
         const int new_weight = min(model_weight + weight, MAX_WEIGHT);
 
+        // save as short
         tsdf_volume.ptr(z * volume_size.y + y)[x] = make_short2(static_cast<short>(new_tsdf), static_cast<short>(new_weight));
     }
 }
@@ -79,16 +69,13 @@ __global__ void kernel_update_tsdf(
 
 void surface_reconstruction(
     const cv::cuda::GpuMat& depth,
-    const CameraParameters& cam, const Eigen::Matrix4f T_c_w,
-    const float truncation_distance,
+    const CameraParameters& cam, const Eigen::Matrix4f& T_c_w,
+    const float& truncation_distance,
     TSDFData& tsdf_data
 )
 {
     const dim3 threads(32, 32);
-    const dim3 blocks(
-        cv::cudev::divUp(tsdf_data.volume_size.x, threads.x),
-        cv::cudev::divUp(tsdf_data.volume_size.y, threads.y)
-    );
+    const dim3 blocks(divUp(tsdf_data.volume_size.x, threads.x), divUp(tsdf_data.volume_size.y, threads.y));
     kernel_update_tsdf<<<blocks, threads>>>(
         depth, cam, 
         T_c_w.block<3, 3>(0, 0).transpose(), - T_c_w.block<3, 3>(0, 0).transpose() * T_c_w.block<3, 1>(0, 3),

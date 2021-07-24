@@ -1,23 +1,10 @@
-#include "cuda_runtime.h"
-#include <opencv2/core/cuda.hpp>
-#include <opencv2/cudev/common.hpp>
-#include <Eigen/Core>
-#include "datatypes.hpp"
+#include <cuda/kernel_common.cuh>
+#include <datatypes.hpp>
 
-using cv::cuda::PtrStepSz;
-using Vector2i_da = Eigen::Matrix<int, 2, 1, Eigen::DontAlign>;
-using Vector3i_da = Eigen::Matrix<int, 3, 1, Eigen::DontAlign>;
-using Vector3f_da = Eigen::Matrix<float, 3, 1, Eigen::DontAlign>;
-using Matrix3f_da = Eigen::Matrix<float, 3, 3, Eigen::DontAlign>;
 
-constexpr int SHORT_MAX = 32767;
-constexpr float INV_SHORT_MAX = 0.0000305185f;  // 1.f / SHORT_MAX;
-constexpr int MAX_WEIGHT = 128;
-
-__device__ __forceinline__
-float interpolate_trilinearly(
+__device__ __forceinline__ float interpolate_trilinearly(
     const Vector3f_da& point, const PtrStepSz<short2>& volume,
-    const int3& volume_size, const float voxel_scale
+    const int3& volume_size, const float& voxel_scale
 ) {
     Vector3i_da point_in_grid = point.cast<int>();
 
@@ -44,8 +31,9 @@ float interpolate_trilinearly(
 }
 
 
-__device__ __forceinline__
-float get_min_time(const float3& volume_max, const Vector3f_da& origin, const Vector3f_da& direction)
+__device__ __forceinline__ float get_min_time(
+    const float3& volume_max, const Vector3f_da& origin, const Vector3f_da& direction
+)
 {
     float txmin = ((direction.x() > 0 ? 0.f : volume_max.x) - origin.x()) / direction.x();
     float tymin = ((direction.y() > 0 ? 0.f : volume_max.y) - origin.y()) / direction.y();
@@ -55,8 +43,9 @@ float get_min_time(const float3& volume_max, const Vector3f_da& origin, const Ve
 }
 
 
-__device__ __forceinline__
-float get_max_time(const float3& volume_max, const Vector3f_da& origin, const Vector3f_da& direction)
+__device__ __forceinline__ float get_max_time(
+    const float3& volume_max, const Vector3f_da& origin, const Vector3f_da& direction
+)
 {
     float txmax = ((direction.x() > 0 ? volume_max.x : 0.f) - origin.x()) / direction.x();
     float tymax = ((direction.y() > 0 ? volume_max.y : 0.f) - origin.y()) / direction.y();
@@ -299,8 +288,8 @@ __global__ void kernel_raycast_tsdf_using_depth(
 void raycast_tsdf(
     const TSDFData &tsdf_data,
     const CameraParameters &cam,
-    const Eigen::Matrix4f T_c_w,
-    const float trancation_distance,
+    const Eigen::Matrix4f &T_c_w,
+    const float &trancation_distance,
     GpuMat &vertex_map, GpuMat &normal_map
 )
 {
@@ -329,8 +318,8 @@ void raycast_tsdf_using_depth(
     const TSDFData &tsdf_data,
     const GpuMat &depth,
     const CameraParameters &cam,
-    const Eigen::Matrix4f T_c_w,
-    const float trancation_distance,
+    const Eigen::Matrix4f &T_c_w,
+    const float &trancation_distance,
     GpuMat &vertex_map, GpuMat &normal_map
 )
 {

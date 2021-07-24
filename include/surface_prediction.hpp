@@ -9,8 +9,8 @@
 void raycast_tsdf(
     const TSDFData &tsdf_data,
     const CameraParameters &cam,
-    const Eigen::Matrix4f T_c_w,
-    const float trancation_distance,
+    const Eigen::Matrix4f &T_c_w,
+    const float &trancation_distance,
     GpuMat &vertex_map, GpuMat &normal_map
 );
 
@@ -19,8 +19,8 @@ void surface_prediction(
     const TSDFData &volume,
     const CameraParameters &cam,
     const Eigen::Matrix4f &T_c_w,
-    const float trancation_distance,
-    const int num_levels,
+    const float &trancation_distance,
+    const int &num_levels,
     ModelData &model_data
 )
 {
@@ -54,18 +54,19 @@ void surface_prediction(
 void raycast_tsdf_using_depth(
     const TSDFData &tsdf_data, const cv::cuda::GpuMat &depth,
     const CameraParameters &cam,
-    const Eigen::Matrix4f T_c_w,
-    const float trancation_distance,
+    const Eigen::Matrix4f &T_c_w,
+    const float &trancation_distance,
     GpuMat &vertex_map, GpuMat &normal_map
 );
 
 
+// test to use measured depth to make it faster
 void surface_prediction_using_depth(
     const TSDFData &volume, const std::vector<cv::cuda::GpuMat> &depth_pyramid,
     const CameraParameters &cam,
     const Eigen::Matrix4f &T_c_w,
-    const float trancation_distance,
-    const int num_levels,
+    const float &trancation_distance,
+    const int &num_levels,
     ModelData &model_data
 )
 {

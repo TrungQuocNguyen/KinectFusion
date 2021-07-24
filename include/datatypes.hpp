@@ -53,11 +53,11 @@ struct CameraParameters
 
 struct PreprocessedData
 {
+    GpuMat color_map;
     std::vector<GpuMat> depth_pyramid;
     std::vector<GpuMat> vertex_pyramid;
     std::vector<GpuMat> normal_pyramid;
 
-    GpuMat color_map;
 
     PreprocessedData(const int& num_layers, CameraParameters &cam) :
         depth_pyramid(num_layers), vertex_pyramid(num_layers), normal_pyramid(num_layers)

@@ -9,7 +9,7 @@
 #include "datatypes.hpp"
 
 // Forward declarartions
-void compute_vertex_map(const GpuMat& depth_map, const CameraParameters cam, GpuMat& vertex_map);
+void compute_vertex_map(const GpuMat& depth_map, const CameraParameters& cam, GpuMat& vertex_map);
 void compute_normal_map(const GpuMat& vertex_map, GpuMat& normal_map);
 
 void surface_measurement(
@@ -24,10 +24,10 @@ void surface_measurement(
     
     cv::cuda::Stream stream;
 
-    // Step 1: Subsample depth (and color image???) to get pyramids (different scales of the images)
+    // Step 1: Subsample depth get pyramids (different scales of the images)
     for (int i = 0; i < num_layers - 1; i++)
     {
-        cv::cuda::pyrDown(data.depth_pyramid[i], data.depth_pyramid[i+1], stream);
+        cv::cuda::pyrDown(data.depth_pyramid[i], data.depth_pyramid[i + 1], stream);
     }
     
     // Step 2: Smooth the depth image with bilateral filtering
@@ -38,7 +38,6 @@ void surface_measurement(
             kernel_size, sigma_color, sigma_spatial, cv::BORDER_DEFAULT, stream
         );
     }
-    stream.waitForCompletion();    
 
     // Step 3: Compute vertex and normal maps 
     for (int i = 0; i < num_layers; i++)
