@@ -11,3 +11,8 @@ sh data/download_tumrgbd.sh
 ```
 
 You can add dataset links into ```data/rgbd_tum_datasets.txt```. (maybe you can refer the list of ```data/rgbd_tum_datsets_2011.txt```)
+
+## Set Parameters
+
+Make yaml file to set parameters.
+You can copy ```data/template.yaml```.
