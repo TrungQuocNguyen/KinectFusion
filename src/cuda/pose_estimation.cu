@@ -1,19 +1,12 @@
-#include "cuda_runtime.h"
-#include <opencv2/core/cuda.hpp>
-#include <opencv2/cudev/common.hpp>
-#include <Eigen/Core>
-#include "datatypes.hpp"
-#include "device_launch_parameters.h"
 
-using cv::cuda::PtrStep;
-using Vector2i_da = Eigen::Matrix<int, 2, 1, Eigen::DontAlign>;
-using Vector3f_da = Eigen::Matrix<float, 3, 1, Eigen::DontAlign>;
-using Matrix3f_da = Eigen::Matrix<float, 3, 3, Eigen::DontAlign>;
+#include <cuda/kernel_common.cuh>
+#include <datatypes.hpp>
 
-/*
+
+
 __global__ void kernel_pose_estimate(
     const PtrStep<float3> prev_vertex_map, const PtrStep<float3> prev_normal_map,
-    const PtrStep<float3> vertex_map, const PtrStep<float3> normal_map,
+    const PtrStepSz<float3> vertex_map, const PtrStep<float3> normal_map,
     const Matrix3f_da prev_rotation, const Vector3f_da prev_translation,
     const Matrix3f_da rotation, const Vector3f_da translation,
     const CameraParameters cam,
@@ -23,17 +16,22 @@ __global__ void kernel_pose_estimate(
 {
     const uint x = blockIdx.x * blockDim.x + threadIdx.x;
     const uint y = blockIdx.y * blockDim.y + threadIdx.y;
+    if (x >= vertex_map.cols || y <= vertex_map.rows) return;
 
-    if (x > cam.width || y < cam.height) return;
+    const float3* vertex = &vertex_map.ptr(y)[x];
+    if (vertex->z < 1e-5) return;
+    Vector3f_da vertex_g = rotation * Vector3f_da(vertex->x, vertex->y, vertex->z) + prev_translation;
 
-    float row[7];
+    const float3* prev_vertex = &prev_vertex_map.ptr(y)[x];
 
-    Vector3f_da normal;
-    normal[0] = normal_map.ptr(y)[x].x;
-    if (isnan(normal[0])) return;
+    const float3* normal = &normal_map.ptr(y)[x];
+    if (normal->x + normal->y + normal->z < 1e-7) return;
+
+    Vector3f_da normal_c;
+    normal_c[0] = normal->x;
     
-    Vector3f_da vertex(vertex_map.ptr(y)[x].x, vertex_map.ptr(y)[x].y, vertex_map.ptr(y)[x].z);
-    Vector3f_da global_vertex = rotation * vertex + prev_translation;
+
+    /*
     Vector3f_da vertex_camera = (global_vertex - prev_translation) * prev_rotation;
     Vector2i_da point(
         __float2int_rd(vertex_camera[0] * cam.fx / vertex_camera[2] + cam.cx + 0.5f),
@@ -91,16 +89,16 @@ __global__ void kernel_pose_estimate(
                 global_buffer.ptr(shift++)[gridDim.x * blockIdx.y + blockIdx.x] = smem[0];
         }
     }
+    */
 }
-*/
 
 void calculate_Ab(
     const cv::cuda::GpuMat& prev_vertex_map, const cv::cuda::GpuMat& prev_normal_map,
     const cv::cuda::GpuMat& vertex_map, const cv::cuda::GpuMat& normal_map,
-    const Matrix3f_da& prev_rotation_inv, const Vector3f_da& prev_translation,
+    const Matrix3f_da& prev_rotation, const Vector3f_da& prev_translation,
     const Matrix3f_da& rotation, const Vector3f_da& translation,
     const CameraParameters& cam,
-    float distance_threshold, float angle_threshold,
+    const float& distance_threshold, const float& angle_threshold,
     Eigen::Matrix<double, 6, 6, Eigen::RowMajor>& A, Eigen::Matrix<double, 6, 1>& b
 )
 {
@@ -113,17 +111,17 @@ void calculate_Ab(
 
     cv::cuda::GpuMat sum_buffer {cv::cuda::createContinuous(27, 1, CV_64FC1)};
     cv::cuda::GpuMat global_buffer {cv::cuda::createContinuous(27, blocks.x * blocks.y, CV_64FC1)};
-    /*
     kernel_pose_estimate<<<blocks, threads>>>(
         prev_vertex_map, prev_normal_map,
         vertex_map, normal_map,
-        prev_rotation_inv, prev_translation,
+        prev_rotation, prev_translation,
         rotation, translation,
         cam,
         distance_threshold, angle_threshold,
         global_buffer
     );
 
+    /*
     kernel_reduction<<<27, 512>>>(global_buffer, blocks.x * blocks * y, sum_buffer);
     
     cv::Mat host_data{ 27, 1, CV_64FC1 };
