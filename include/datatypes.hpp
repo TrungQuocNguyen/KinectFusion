@@ -177,3 +177,40 @@ struct CloudData
         return pc;
     }
 };
+
+
+struct SurfaceMesh
+{
+    cv::Mat triangles;
+    int num_vertices;
+    int num_triangles;
+};
+
+struct MeshData {
+GpuMat occupied_voxel_ids_buffer;
+GpuMat number_vertices_buffer;
+GpuMat vertex_offsets_buffer;
+GpuMat triangle_buffer;
+
+GpuMat occupied_voxel_ids;
+GpuMat number_vertices;
+GpuMat vertex_offsets;
+
+explicit MeshData(const int buffer_size):
+        occupied_voxel_ids_buffer{cv::cuda::createContinuous(1, buffer_size, CV_32SC1)},
+        number_vertices_buffer{cv::cuda::createContinuous(1, buffer_size, CV_32SC1)},
+        vertex_offsets_buffer{cv::cuda::createContinuous(1, buffer_size, CV_32SC1)},
+        triangle_buffer{cv::cuda::createContinuous(1, buffer_size * 3, CV_32FC3)},
+        occupied_voxel_ids{}, number_vertices{}, vertex_offsets{}
+{ }
+
+void create_view(const int length)
+{
+    occupied_voxel_ids = GpuMat(1, length, CV_32SC1, occupied_voxel_ids_buffer.ptr<int>(0),
+                                occupied_voxel_ids_buffer.step);
+    number_vertices = GpuMat(1, length, CV_32SC1, number_vertices_buffer.ptr<int>(0),
+                                number_vertices_buffer.step);
+    vertex_offsets = GpuMat(1, length, CV_32SC1, vertex_offsets_buffer.ptr<int>(0),
+                            vertex_offsets_buffer.step);
+}
+};

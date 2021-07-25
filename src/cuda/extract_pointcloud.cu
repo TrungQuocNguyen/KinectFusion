@@ -1,20 +1,12 @@
-#include "cuda_runtime.h"
-#include <opencv2/core/cuda.hpp>
-#include <opencv2/cudev/common.hpp>
-#include <Eigen/Core>
+#include <cuda/kernel_common.cuh>
 #include "datatypes.hpp"
 
-using cv::cuda::PtrStepSz;
-using Vector2i_da = Eigen::Matrix<int, 2, 1, Eigen::DontAlign>;
-using Vector3f_da = Eigen::Matrix<float, 3, 1, Eigen::DontAlign>;
-using Matrix3f_da = Eigen::Matrix<float, 3, 3, Eigen::DontAlign>;
-constexpr float DIVSHORTMAX = 0.0000305185f;  // 1.f / SHORT_MAX;
 
 __global__
 void extract_points_kernel(
     const PtrStepSz<short2> tsdf_volume, 
     const int3 volume_size, const float voxel_scale,
-    PtrStepSz<float3> vertices, PtrStepSz<float3> normals,
+    PtrStepSz<float3> vertices, PtrStep<float3> normals,
     int *point_num
 )
 {
@@ -26,7 +18,7 @@ void extract_points_kernel(
     for (int z = 0; z < volume_size.z - 1; ++z) {
         const short2 value = tsdf_volume.ptr(z * volume_size.y + y)[x];
 
-        const float tsdf = static_cast<float>(value.x) * DIVSHORTMAX;
+        const float tsdf = static_cast<float>(value.x) * INV_SHORT_MAX;
         if (tsdf == 0 || tsdf <= -0.99f || tsdf >= 0.99f) continue;
 
         short2 vx = tsdf_volume.ptr((z) * volume_size.y + y)[x + 1];
@@ -35,9 +27,9 @@ void extract_points_kernel(
 
         if (vx.y <= 0 || vy.y <= 0 || vz.y <= 0) continue;
 
-        const float tsdf_x = static_cast<float>(vx.x) * DIVSHORTMAX;
-        const float tsdf_y = static_cast<float>(vy.x) * DIVSHORTMAX;
-        const float tsdf_z = static_cast<float>(vz.x) * DIVSHORTMAX;
+        const float tsdf_x = static_cast<float>(vx.x) * INV_SHORT_MAX;
+        const float tsdf_y = static_cast<float>(vy.x) * INV_SHORT_MAX;
+        const float tsdf_z = static_cast<float>(vz.x) * INV_SHORT_MAX;
 
         const bool is_surface_x = ((tsdf > 0) && (tsdf_x < 0)) || ((tsdf < 0) && (tsdf_x > 0));
         const bool is_surface_y = ((tsdf > 0) && (tsdf_y < 0)) || ((tsdf < 0) && (tsdf_y > 0));

@@ -7,8 +7,8 @@ int main()
 {
     if (Config::setParameterFile("../data/tumrgbd.yaml") == false) return -1;
 
-    std::string tum_dataset_dir = Config::get<std::string>("tum_dataset_dir");
-    Dataset dataset = TUMRGBDDataset(tum_dataset_dir, static_cast<TUMRGBDDataset::TUMRGBD>(Config::get<int>("tumrgbd")));
+    std::string dataset_dir = Config::get<std::string>("tum_dataset_dir");
+    Dataset dataset = TUMRGBDDataset(dataset_dir, static_cast<TUMRGBDDataset::TUMRGBD>(Config::get<int>("tumrgbd")));
 
     auto cam = dataset.getCameraParameters();
     cam.max_depth = Config::get<float>("max_depth");
@@ -24,7 +24,7 @@ int main()
     K(1, 1) = cam.fy;
     K(0, 2) = cam.cx;
     K(1, 2) = cam.cy;
-    cv::viz::WCameraPosition wcam(K, 1.0, cv::viz::Color::red());
+    cv::viz::WCameraPosition wcam(K, 1000.0, cv::viz::Color::red());
     my_window.showWidget("cam", wcam);
 
     const int num_levels {Config::get<int>("num_levels")};
@@ -47,6 +47,7 @@ int main()
     );
     PreprocessedData data(num_levels, cam);
     ModelData model_data(num_levels, cam);
+    double sum_time = 0.;
     for (int index = 0; index < dataset.size(); ++index)
     {
         printf("index : %d\n", index);
@@ -54,7 +55,10 @@ int main()
         dataset.getData(index, img, depth);
         depth *= 1000.f;  // m -> mm
 
+        Timer timer("Frame " + std::to_string(index));
+
         surface_measurement(depth, img, num_levels, kernel_size, sigma_color, sigma_spatial, cam, data);
+        timer.print("Surface Measurement");
 
         if (index != 0)
         {
@@ -72,11 +76,19 @@ int main()
                     icp_iterations,
                     current_pose
                 );
-            }            
+                timer.print("Pose Estimation");
+                if (!icp_success) continue;
+            }
         }
 
         surface_reconstruction(data.depth_pyramid[0], cam, current_pose, truncation_distance, tsdf_data);
+        timer.print("Surface Reconstruction");
+
         surface_prediction(tsdf_data, cam, current_pose, truncation_distance, num_levels, model_data);
+        timer.print("Surface Prediction");
+
+        sum_time += timer.print();
+        printf("[ FPS ] : %f\n", (index + 1) * 1000.f / sum_time);
 
         cv::Mat normals, vertices;
         model_data.normal_pyramid[0].download(normals);
@@ -91,7 +103,7 @@ int main()
             cv::imshow("v" + std::to_string(level), v);
         }
         */
-        cv::imshow("normal", normals);
+        cv::imshow("predicted normals", normals);
         cv::imshow("img", img);
         cv::imshow("depth", depth);
         int k = cv::waitKey(1);
@@ -113,4 +125,15 @@ int main()
         my_window.setWidgetPose("cam", cv::Affine3f(T));
         my_window.spinOnce(10);
     }
+    
+    int tmp = dataset_dir.rfind("/", dataset_dir.size() - 2);
+    std::string dataset_name = dataset_dir.substr(tmp + 1, dataset_dir.size() - tmp - 2);
+
+    // save as point cloud
+    // PointCloud pc = extract_points(tsdf_data, 3 * 1000000);
+    // export_ply(dataset_name + ".ply", pc);
+
+    // save as mesh
+    SurfaceMesh sm = extract_mesh(tsdf_data, 3 * 1000000);
+    export_ply(dataset_name + ".ply", sm);
 }
