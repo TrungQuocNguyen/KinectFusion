@@ -61,10 +61,12 @@ bool pose_estimation(
             
             // Solve equation
             double det = AtA.determinant();
+
+            /*
             printf("iter %d: det %f\n", i, det);
-            
             std::cout << AtA << std::endl;
             std::cout << Atb << std::endl;
+            */
             
             if (isnan(det)) continue;
             flag_success = true;
