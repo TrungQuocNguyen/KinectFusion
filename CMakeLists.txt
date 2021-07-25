@@ -8,7 +8,12 @@ include_directories(${CUDA_INCLUDE_DIRS})
 SET(CUDA_PROPAGATE_HOST_FLAGS OFF)
 find_package(Eigen3 REQUIRED)
 find_package(OpenCV REQUIRED)
-include_directories(${OpenCV_INCLUDE_DIRS})
+#include_directories(${OpenCV_INCLUDE_DIRS})
+include_directories(
+include
+${OpenCV_INCLUDE_DIRS}
+${EIGEN3_INCLUDE_DIR}
+)
 link_libraries(${OpenCV_LIBS})
 
 include_directories(${PROJECT_SOURCE_DIR}/include/)

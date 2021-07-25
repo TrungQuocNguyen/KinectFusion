@@ -23,19 +23,21 @@ void surface_measurement(PreprocessedData& data,
                          const float& max_depth){
     
     // Allocate GPU memory
-    data.color_map = cv::cuda::createContinuous(camera_params.img_height, camera_params.img_width, CV_8UC3);
+    //data.color_map = cv::cuda::createContinuous(camera_params.img_height, camera_params.img_width, CV_8UC3);
     for (int i = 0; i < num_layers; i++) {
         const int width = camera_params.getCameraIntrinsics(i).img_width;
         const int height = camera_params.getCameraIntrinsics(i).img_height;
         data.depth_pyramid[i] = cv::cuda::createContinuous(height, width, CV_32FC1);
         data.filtered_depth_pyramid[i] = cv::cuda::createContinuous(height, width, CV_32FC1);
+        data.color_pyramid[i] = cv::cuda::createContinuous(height, width, CV_8UC3);
         data.vertex_pyramid[i] = cv::cuda::createContinuous(height, width, CV_32FC3);
         data.normal_pyramid[i] = cv::cuda::createContinuous(height, width, CV_32FC3);
         data.valid_vertex_mask[i] = cv::cuda::createContinuous(height, width, CV_8U);
     }
 
     data.depth_pyramid[0].upload(depth);
-    data.color_map.upload(img);
+    //data.color_map.upload(img);
+    data.color_pyramid[0].upload(img);
 
     if (!data.depth_pyramid[0].isContinuous()){ 
         data.depth_pyramid[0] = data.depth_pyramid[0].clone();
@@ -46,6 +48,7 @@ void surface_measurement(PreprocessedData& data,
     for (int i = 0; i < num_layers - 1; i++)
     {
         cv::cuda::pyrDown(data.depth_pyramid[i], data.depth_pyramid[i+1], stream);
+        cv::cuda::pyrDown(data.color_pyramid[i], data.color_pyramid[i+1], stream);
     }
     // Step 2: Smooth the depth image with bilateral filtering
     for (int i = 0; i < num_layers; i++)

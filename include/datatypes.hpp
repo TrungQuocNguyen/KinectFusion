@@ -26,14 +26,14 @@ struct PreprocessedData
 {
     std::vector<GpuMat> depth_pyramid;
     std::vector<GpuMat> filtered_depth_pyramid;
-    //std::vector<GpuMat> color_pyramid;              //TODO: check if this is needed
-    GpuMat color_map;
+    std::vector<GpuMat> color_pyramid;              //TODO: check if this is needed
+    //GpuMat color_map;
 
     std::vector<GpuMat> vertex_pyramid;
     std::vector<GpuMat> normal_pyramid;
     std::vector<GpuMat> valid_vertex_mask;
 
-    PreprocessedData(const size_t& size): depth_pyramid(size), filtered_depth_pyramid(size), vertex_pyramid(size), normal_pyramid(size), valid_vertex_mask(size) {} // set number of subsampled pyramid layers 
+    PreprocessedData(const size_t& size): depth_pyramid(size), filtered_depth_pyramid(size), vertex_pyramid(size), normal_pyramid(size), valid_vertex_mask(size), color_pyramid(size) {} // set number of subsampled pyramid layers 
 };
 
 

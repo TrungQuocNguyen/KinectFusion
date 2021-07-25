@@ -51,7 +51,8 @@ int main()
     float truncation_distance {10.f};
     TSDFData tsdf_data(make_int3(1024, 1024, 512), 10.f);
     Eigen::Matrix4f current_pose = Eigen::Matrix4f::Identity();
-    for (int index = 0; index < dataset.size(); ++index)
+    //for (int index = 0; index < dataset.size(); ++index)
+    for (int index = 0; index < 1; ++index)
     {
         cv::Mat img, depth;
         dataset.getData(index, img, depth);
@@ -67,10 +68,14 @@ int main()
 
         PreprocessedData data(num_levels);
         surface_measurement(data, depth, img, num_levels, kernel_size, sigma_color, sigma_spatial, cam_intrinsics, 4000.f);
-
+        cv::Mat temp;
+        data.depth_pyramid[0].download(temp);
+        std::cout << "tsdf: " << temp << std::endl;
         surface_reconstruction(data.depth_pyramid[0], cam_intrinsics, current_pose, truncation_distance, tsdf_data);
     }
-
+    /*cv::Mat temp;
+    tsdf_data.tsdf.download(temp);
+    std::cout << "tsdf: " << temp << std::endl;*/
     PointCloud pc = extract_points(tsdf_data, 3 * 1000000);
     export_ply(dataset_name + ".ply", pc);
     cv::Vec4f::ones();

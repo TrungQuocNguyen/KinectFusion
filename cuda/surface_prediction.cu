@@ -113,9 +113,13 @@ __global__ void kernel_raycast_tsdf(
             tsdf_volume.ptr(__float2int_rd(grid[2]) * volume_size.y + __float2int_rd(grid[1]))[__float2int_rd(grid[0])].x
         ) * INV_SHORT_MAX;
 
-        if (previous_tsdf < 0.f && tsdf > 0.f) break;  //Zero crossing from behind
+        if (previous_tsdf < 0.f && tsdf > 0.f) {
+            //printf("Here%d\n",2);
+            break;
+        }  //Zero crossing from behind
         if (previous_tsdf > 0.f && tsdf < 0.f)
         {
+            //printf("Here%d\n",3);
             //Zero crossing
             const float t_star = ray_length - truncation_distance * 0.5f * previous_tsdf / (tsdf - previous_tsdf);
             const auto vertex = translation + ray_direction * t_star;
@@ -169,7 +173,7 @@ __global__ void kernel_raycast_tsdf(
             if (normal.norm() == 0) break;
 
             normal.normalize();
-
+            printf("Here%d\n",6);
             vertex_map.ptr(y)[x] = make_float3(vertex.x(), vertex.y(), vertex.z());
             normal_map.ptr(y)[x] = make_float3(normal.x(), normal.y(), normal.z());
             break;

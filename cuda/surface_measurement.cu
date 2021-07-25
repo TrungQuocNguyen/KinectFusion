@@ -35,20 +35,30 @@ __global__ void kernel_compute_normal_map(cv::cuda::PtrStepSz<float3> vertex_map
     // Calculate global row and column for each thread
     const int col = blockIdx.x * blockDim.x + threadIdx.x;
     const int row = blockIdx.y * blockDim.y + threadIdx.y;
-
+    float sx, sy, sz, tx, ty, tz;
     if (col >= vertex_map.cols - 1 || row >= vertex_map.rows - 1){
         if (col == vertex_map.cols - 1 || row == vertex_map.rows - 1){
             normal_map(row, col) = make_float3(0.f,0.f,0.f);            // TODO: maybe compute them with vertex_map(row - 1, col) etc.
+            return;
+            /*sx = vertex_map(row - 1, col).x - vertex_map(row, col).x;
+            sy = vertex_map(row - 1, col).y - vertex_map(row, col).y;
+            sz = vertex_map(row - 1, col).z - vertex_map(row, col).z;
+            tx = vertex_map(row, col - 1).x - vertex_map(row, col).x;
+            ty = vertex_map(row, col - 1).y - vertex_map(row, col).y;
+            tz = vertex_map(row, col - 1).z - vertex_map(row, col).z;*/
+        }else{
+            normal_map(row, col) = make_float3(0.f,0.f,0.f);
+            return;
         }
-        return;
+    }else{
+        sx = vertex_map(row + 1, col).x - vertex_map(row, col).x;
+        sy = vertex_map(row + 1, col).y - vertex_map(row, col).y;
+        sz = vertex_map(row + 1, col).z - vertex_map(row, col).z;
+        tx = vertex_map(row, col + 1).x - vertex_map(row, col).x;
+        ty = vertex_map(row, col + 1).y - vertex_map(row, col).y;
+        tz = vertex_map(row, col + 1).z - vertex_map(row, col).z;
     }
-    float sx = vertex_map(row + 1, col).x - vertex_map(row, col).x;
-    float sy = vertex_map(row + 1, col).y - vertex_map(row, col).y;
-    float sz = vertex_map(row + 1, col).z - vertex_map(row, col).z;
-    float tx = vertex_map(row, col + 1).x - vertex_map(row, col).x;
-    float ty = vertex_map(row, col + 1).y - vertex_map(row, col).y;
-    float tz = vertex_map(row, col + 1).z - vertex_map(row, col).z;
-
+    
     float3 cross_prod = make_float3(sy * tz - sz * ty, 
                                     sz * tx - sx * tz,
                                     sx * ty - sy * tx);

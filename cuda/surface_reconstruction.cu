@@ -44,6 +44,7 @@ __global__ void kernel_update_tsdf(
         if (uv[0] < 0 || uv[0] >= depth.cols || uv[1] < 0 || uv[1] >= depth.rows) continue;
 
         const float d = depth.ptr(uv[1])[uv[0]];
+        //printf("Here %d\n", d);
         if (d <= 50.f) continue;  // in mm
 
         const Vector3f_da lambda_vec(

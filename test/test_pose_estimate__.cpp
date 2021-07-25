@@ -3,6 +3,19 @@
 #include "datatypes.hpp"
 #include "surface_measurement.hpp"
 
+//Forward declarations
+void compute_pose_estimate(
+    const GpuMat& vertex_map,
+    const GpuMat& normal_map, 
+    const GpuMat& pred_vertex_map,
+    const GpuMat& pred_normal_map,
+    const GpuMat& valid_vertex_mask,
+    const Eigen::Matrix4f& T_g_k, 
+    Eigen::Matrix<float, 6, 6, Eigen::RowMajor>& left,
+    Eigen::Matrix<float, 6, 1>& right,
+    const float& threshold_dist, 
+    const float& threshold_angle
+);
 
 void surface_prediction(
     const TSDFData &volume,
@@ -64,6 +77,8 @@ int main()
 
     CameraIntrinsics cam = dataset.getCameraIntrinsics();
     Eigen::Matrix4f current_pose = Eigen::Matrix4f::Identity();
+    Eigen::Matrix4f T_inc;
+
 
     // visualization to check normals and vertices
     cv::viz::Viz3d my_window("Surface Prediction");
@@ -83,8 +98,14 @@ int main()
     float sigma_color {1.f};
     float sigma_spatial {1.f};
     float truncation_distance {10.f};
+    PreprocessedData data(num_levels);
     TSDFData tsdf_data(make_int3(1024, 1024, 512), 10.f);
     ModelData model_data(num_levels, cam);
+    
+    std::vector<int> iterations {4, 5, 10}; // iterations for icp in pose estimation (level 3, level 2, level 1)
+    float threshold_dist {10000.f};
+    float threshold_angle {10000.f};
+    
     for (int index = 0; index < dataset.size(); ++index)
     {
         cv::Mat img, depth;
@@ -99,9 +120,43 @@ int main()
             current_pose = current_pose * rel_pose;
         }
 
-        PreprocessedData data(num_levels);
-        surface_measurement(data, depth, img, num_levels, kernel_size, sigma_color, sigma_spatial, cam, 100000.f);
+        surface_measurement(data, depth, img, num_levels, kernel_size, sigma_color, sigma_spatial, cam, 4000000.f);
 
+        if (index != 0){
+            for (int i = num_levels-1; i > -1; i--)     // from coarse to fine
+            {
+                for (int j = 0; j < iterations[i]; j++)
+                {
+                    Eigen::Matrix<float, 6, 1> right;
+                    Eigen::Matrix<float, 6, 6, Eigen::RowMajor> left;
+                    //right.setZero();
+                    //left.setZero();
+
+                    compute_pose_estimate(
+                                data.vertex_pyramid[i], data.normal_pyramid[i], 
+                                model_data.vertex_pyramid[i], model_data.normal_pyramid[i], 
+                                data.valid_vertex_mask[i], 
+                                current_pose, 
+                                left, right, 
+                                threshold_dist, threshold_angle);
+
+                    Eigen::Matrix<float, 6, 1> x = left.llt().solve(right);
+
+                    T_inc <<    1,     x[2],  -x[1], x[3],
+                                -x[2], 1,     x[0],  x[4],
+                                x[1],  -x[0], 1,     x[5],
+                                0,     0,     0,     1;
+                    
+                    current_pose = T_inc * current_pose;
+                }
+            }
+        }
+        /*if (true)
+        {
+            cv::Mat test;
+            data.depth_pyramid[0].download(test);
+            std::cout << test << std::endl;             
+        }*/
         surface_reconstruction(data.depth_pyramid[0], cam, current_pose, truncation_distance, tsdf_data);
 
         for (int level = 0; level < num_levels; ++level)
@@ -132,6 +187,14 @@ int main()
                 T(y, x) = current_pose(y, x);
             }
         }
+        /*cv::viz::WCloud pointCloud(vertex/128.f, cv::viz::Color::green());
+        myWindow.showWidget("points", pointCloud);
+
+        // Start event loop (run until user terminates it by pressing e, E, q, Q)
+        myWindow.spin();
+        std::cout << "First event loop is over" << std::endl;
+*/         
+        
         cv::viz::WCloud point_cloud(vertices, img);
         my_window.showWidget("points", point_cloud);
         cv::viz::WCloudNormals normal_cloud(vertices, normals, 64, 0.10, cv::viz::Color::red());
