@@ -91,9 +91,7 @@ __device__ __forceinline__
 float3 vertex_interpolate(const float3 p0, const float3 p1, const float f0, const float f1)
 {
     float t = (0.f - f0) / (f1 - f0 + 1e-15f);
-    return make_float3(p0.x + t * (p1.x - p0.x),
-                        p0.y + t * (p1.y - p0.y),
-                        p0.z + t * (p1.z - p0.z));
+    return make_float3(p0.x + t * (p1.x - p0.x), p0.y + t * (p1.y - p0.y), p0.z + t * (p1.z - p0.z));
 }
 
 //##### KERNELS #####
@@ -306,11 +304,13 @@ SurfaceMesh marching_cubes(const TSDFData& volume, const int triangles_buffer_si
     dim3 grid(min(blocks_num, 65536), static_cast<unsigned>(std::ceil(blocks_num / 65536)));
     grid.y = 1;
 
-    generate_triangles_kernel<<<grid, block>>> (volume.tsdf,
-            volume.volume_size, volume.voxel_scale,
-            mesh_data.occupied_voxel_ids, mesh_data.vertex_offsets,
-            number_vertices_table, triangle_table,
-            mesh_data.triangle_buffer);
+    generate_triangles_kernel<<<grid, block>>> (
+        volume.tsdf,
+        volume.volume_size, volume.voxel_scale,
+        mesh_data.occupied_voxel_ids, mesh_data.vertex_offsets,
+        number_vertices_table, triangle_table,
+        mesh_data.triangle_buffer
+    );
 
     cudaDeviceSynchronize();
     // ### ###

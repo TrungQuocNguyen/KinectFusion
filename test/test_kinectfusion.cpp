@@ -1,7 +1,6 @@
-#include <kinectfusion.hpp>
-#include <dataset.hpp>
 #include <opencv2/viz/viz3d.hpp>
-
+#include "kinectfusion.hpp"
+#include "dataset.hpp"
 
 int main()
 {
@@ -90,7 +89,8 @@ int main()
         sum_time += timer.print();
         printf("[ FPS ] : %f\n", (index + 1) * 1000.f / sum_time);
 
-        cv::Mat normals, vertices;
+        cv::Mat measured_normals, normals, vertices;
+        data.normal_pyramid[0].download(measured_normals);
         model_data.normal_pyramid[0].download(normals);
         model_data.vertex_pyramid[0].download(vertices);
         /*
@@ -103,9 +103,12 @@ int main()
             cv::imshow("v" + std::to_string(level), v);
         }
         */
+        // cv::resize(measured_normals, measured_normals, cv::Size(), 0.5, 0,5);
+        // cv::resize(normals, normals, cv::Size(), 0.5, 0,5);
+        // cv::resize(img, img, cv::Size(), 0.5, 0,5);
+        cv::imshow("measured normals", measured_normals);
         cv::imshow("predicted normals", normals);
         cv::imshow("img", img);
-        cv::imshow("depth", depth);
         int k = cv::waitKey(1);
         if (k == 'q') break;  // press q to quit
         else if (k == ' ') cv::waitKey(0);  // press space to stop
@@ -130,10 +133,10 @@ int main()
     std::string dataset_name = dataset_dir.substr(tmp + 1, dataset_dir.size() - tmp - 2);
 
     // save as point cloud
-    // PointCloud pc = extract_points(tsdf_data, 3 * 1000000);
-    // export_ply(dataset_name + ".ply", pc);
+    PointCloud pc = extract_points(tsdf_data, 3 * 1000000);
+    export_ply(dataset_name + ".ply", pc);
 
     // save as mesh
-    SurfaceMesh sm = extract_mesh(tsdf_data, 3 * 1000000);
-    export_ply(dataset_name + ".ply", sm);
+    // SurfaceMesh sm = extract_mesh(tsdf_data, 3 * 1000000);
+    // export_ply(dataset_name + ".ply", sm);
 }

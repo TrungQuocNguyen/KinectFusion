@@ -1,7 +1,8 @@
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 3.10)
 project(kinectfusion)
 
-set(CMAKE_CXX_FLAGS "-O3 -Wextra")
+set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_FLAGS "-O3 -Wall")
 
 find_package(CUDA REQUIRED)
 include_directories(${CUDA_INCLUDE_DIRS})

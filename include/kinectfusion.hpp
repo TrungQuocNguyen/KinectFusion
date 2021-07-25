@@ -57,6 +57,7 @@ SurfaceMesh extract_mesh(const TSDFData& volume, const int buffer_size)
     return surface_mesh;
 }
 
+
 void export_ply(const std::string& filename, const SurfaceMesh& surface_mesh)
 {
     std::ofstream file_out { filename };
