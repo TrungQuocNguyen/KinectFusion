@@ -1,6 +1,7 @@
 #include <opencv2/core/cuda.hpp>
 #include <datatypes.hpp>
 #include <Eigen/Core>
+#include <Eigen/Eigen>
 #include <opencv2/cudaarithm.hpp>
 
 using cv::cuda::GpuMat;

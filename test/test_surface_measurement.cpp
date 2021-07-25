@@ -40,6 +40,7 @@ int main()
     float sigma_spatial {1.f};
     for (int index = 0; index < dataset.size(); ++index)
     {
+        index = 370;
         cv::Mat img0, img1, img2, depth;
         dataset.getData(index, img0, depth);
         depth *= 1000.f;  // m -> mm

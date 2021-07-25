@@ -10,7 +10,7 @@
 
 // Forward declarartions
 void compute_vertex_map(const GpuMat& depth_map, GpuMat& vertex_map, GpuMat& valid_vertex_mask, const CameraIntrinsics camera_params, const float max_depth);
-void compute_normal_map(const GpuMat& vertex_map, GpuMat& normal_map);
+void compute_normal_map(const GpuMat& vertex_map, GpuMat& normal_map, GpuMat& valid_vertex_mask);
 
 void surface_measurement(PreprocessedData& data,
                          const cv::Mat& depth,
@@ -32,7 +32,7 @@ void surface_measurement(PreprocessedData& data,
         data.color_pyramid[i] = cv::cuda::createContinuous(height, width, CV_8UC3);
         data.vertex_pyramid[i] = cv::cuda::createContinuous(height, width, CV_32FC3);
         data.normal_pyramid[i] = cv::cuda::createContinuous(height, width, CV_32FC3);
-        data.valid_vertex_mask[i] = cv::cuda::createContinuous(height, width, CV_8U);
+        data.valid_vertex_mask[i] = cv::cuda::createContinuous(height, width, CV_8UC1);
     }
 
     data.depth_pyramid[0].upload(depth);
@@ -61,7 +61,7 @@ void surface_measurement(PreprocessedData& data,
     for (int i = 0; i < num_layers; i++)
     {
         compute_vertex_map(data.filtered_depth_pyramid[i], data.vertex_pyramid[i], data.valid_vertex_mask[i], camera_params.getCameraIntrinsics(i), max_depth);
-        compute_normal_map(data.vertex_pyramid[i], data.normal_pyramid[i]);
+        compute_normal_map(data.vertex_pyramid[i], data.normal_pyramid[i], data.valid_vertex_mask[i]);
     }
 
 }

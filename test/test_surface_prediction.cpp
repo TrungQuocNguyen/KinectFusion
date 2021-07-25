@@ -82,7 +82,7 @@ int main()
     int kernel_size {9};
     float sigma_color {1.f};
     float sigma_spatial {1.f};
-    float truncation_distance {10.f};
+    float truncation_distance {100000.f};
     TSDFData tsdf_data(make_int3(1024, 1024, 512), 10.f);
     ModelData model_data(num_levels, cam);
     for (int index = 0; index < dataset.size(); ++index)
@@ -100,10 +100,12 @@ int main()
         }
 
         PreprocessedData data(num_levels);
-        surface_measurement(data, depth, img, num_levels, kernel_size, sigma_color, sigma_spatial, cam, 100000.f);
+        surface_measurement(data, depth, img, num_levels, kernel_size, sigma_color, sigma_spatial, cam, 4000.f);
 
         surface_reconstruction(data.depth_pyramid[0], cam, current_pose, truncation_distance, tsdf_data);
-
+        cv::Mat tsdf;
+        tsdf_data.tsdf.download(tsdf);
+        std::cout << "tsdf_data : " << tsdf << std::endl;
         for (int level = 0; level < num_levels; ++level)
         {
             surface_prediction(

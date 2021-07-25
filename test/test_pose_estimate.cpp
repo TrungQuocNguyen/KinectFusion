@@ -128,8 +128,8 @@ int main()
     PreprocessedData data2(num_levels);
     
     //std::vector<int> iterations {4, 5, 10}; // iterations for icp in pose estimation (level 3, level 2, level 1)
-    std::vector<int> iterations {2, 3, 7}; // iterations for icp in pose estimation (level 3, level 2, level 1)
-    float threshold_dist {10.f};
+    std::vector<int> iterations {4, 5, 10}; // iterations for icp in pose estimation (level 3, level 2, level 1)
+    float threshold_dist {200.f};
     float threshold_angle {20.f};
     
     //for (int index = 0; index < dataset.size()-1; ++index)
@@ -164,18 +164,40 @@ int main()
                                 left, right, 
                                 threshold_dist, threshold_angle);
 
-                    //Eigen::Matrix<float, 6, 1> x = left.llt().solve(right);
-                    Eigen::Matrix<float, 6, 1> x = left.fullPivLu().solve(right).cast<float>();
+                    Eigen::Matrix<float, 6, 1> x = left.llt().solve(right);
+                    //Eigen::Matrix<float, 6, 1> x = left.fullPivLu().solve(right).cast<float>();
 
-                    T_inc <<    1,     x[2],  -x[1], x[3],
+                    /*T_inc <<    1,     x[2],  -x[1], x[3],
                                 -x[2], 1,     x[0],  x[4],
                                 x[1],  -x[0], 1,     x[5],
-                                0,     0,     0,     1;
-                    std::cout << "T_inc: " << T_inc << std::endl;            
-                    std::cout << "left: " << left << std::endl;
-                    std::cout << "right: " << right << std::endl;
-                    current_pose = T_inc * current_pose;
+                                0,     0,     0,     1;*/
+                    float alpha = x[0];
+                    float beta = x[1];
+                    float gamma = x[2];
+                    
+                    /*T_inc << 1,     alpha*beta - gamma,   alpha*gamma + beta,     x[3],
+                             gamma, alpha*beta*gamma + 1, beta*gamma - alpha,     x[4],
+                             -beta,    alpha,                  1,                 x[5],
+                             0 , 0, 0, 1;*/
+                    // Update rotation
+                    Eigen::Matrix3f R_inc(
+                            Eigen::AngleAxisf(gamma, Eigen::Vector3f::UnitZ()) *
+                            Eigen::AngleAxisf(beta, Eigen::Vector3f::UnitY()) *
+                            Eigen::AngleAxisf(alpha, Eigen::Vector3f::UnitX()));
+                    Eigen::Vector3f t_inc = x.tail<3>();
+
+                    //std::cout << "T_inc: " << std::endl << T_inc << std::endl;            
+                    std::cout << "R_inc: " << std::endl << R_inc << std::endl;            
+                    std::cout << "t_inc: " << std::endl << t_inc << std::endl;            
+                    std::cout << "current_pose: " << std::endl << current_pose << std::endl;            
+                    std::cout << "left: " << std::endl << left << std::endl;
+                    std::cout << "right: " << std::endl << right << std::endl;
+                    Eigen::Vector3f translation = R_inc * current_pose.block<3,1>(0,3) + t_inc;
+                    Eigen::Matrix3f rotation = R_inc * current_pose.block<3,3>(0,0);
+                    //current_pose = T_inc * current_pose;
                     //current_pose = identity;
+                    current_pose.block<3,3>(0,0) = rotation;
+                    current_pose.block<3,1>(0,3) = translation;
                 }
             }
         }
@@ -233,21 +255,20 @@ int main()
                 T(y, x) = current_pose(y, x);
             }
         }
-        //cv::viz::WCloud point_cloud(vert, img);
-        cv::viz::WCloud point_cloud(vert, cv::viz::Color::red());
+        cv::viz::WCloud point_cloud(vert, img);
+        //cv::viz::WCloud point_cloud(vert, cv::viz::Color::red());
         my_window.showWidget("points", point_cloud);
         //cv::viz::WCloudNormals normal_cloud(vert, normals, 64, 0.10, cv::viz::Color::red());
         //my_window.showWidget("normals", normal_cloud);
 
-        //cv::viz::WCloud point_cloud2(vertices2, img2);
-        
-        cv::viz::WCloud point_cloud2(vertices2, cv::viz::Color::green());
+        cv::viz::WCloud point_cloud2(vertices2, img2);
+        //cv::viz::WCloud point_cloud2(vertices2, cv::viz::Color::red());
         my_window.showWidget("points2", point_cloud2);
         /*cv::viz::WCloudNormals normal_cloud2(vertices2, normals2, 64, 0.10, cv::viz::Color::green());
         my_window.showWidget("normals2", normal_cloud2);*/
 
         my_window.setWidgetPose("cam", cv::Affine3f(T));
 
-        my_window.spinOnce(200);
+        my_window.spinOnce(100);
     }
 }

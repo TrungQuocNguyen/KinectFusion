@@ -11,6 +11,10 @@ __global__ void kernel_compute_vertex_map(const cv::cuda::PtrStepSz<float> depth
     const int row = blockIdx.y * blockDim.y + threadIdx.y;
 
     if (col >= depth_map.cols || row >= depth_map.rows)
+        /*if (col == (depth_map.cols - 1) || row == (depth_map.rows - 1)){
+            //normal_map(row, col) = make_float3(0.f,0.f,0.f);            // TODO: maybe compute them with vertex_map(row - 1, col) etc.
+            valid_vertex_mask(row, col) = 0;
+        }*/
         return;
 
     float depth_val = depth_map(row, col);
@@ -19,10 +23,10 @@ __global__ void kernel_compute_vertex_map(const cv::cuda::PtrStepSz<float> depth
     if (depth_val > max_depth)
     {
         depth_val = 0.f;
-        valid_vertex_mask(row, col) = 0;
+        //valid_vertex_mask(row, col) = 0;
     } else
     {
-        valid_vertex_mask(row, col) = 1;
+        //valid_vertex_mask(row, col) = 1;
     }
 
     // from screen to camera space
@@ -31,14 +35,15 @@ __global__ void kernel_compute_vertex_map(const cv::cuda::PtrStepSz<float> depth
                                        depth_val);
 }
 
-__global__ void kernel_compute_normal_map(cv::cuda::PtrStepSz<float3> vertex_map, cv::cuda::PtrStepSz<float3> normal_map){
+__global__ void kernel_compute_normal_map(cv::cuda::PtrStepSz<float3> vertex_map, cv::cuda::PtrStepSz<float3> normal_map, cv::cuda::PtrStepSz<int> valid_vertex_mask){
     // Calculate global row and column for each thread
     const int col = blockIdx.x * blockDim.x + threadIdx.x;
     const int row = blockIdx.y * blockDim.y + threadIdx.y;
     float sx, sy, sz, tx, ty, tz;
-    if (col >= vertex_map.cols - 1 || row >= vertex_map.rows - 1){
-        if (col == vertex_map.cols - 1 || row == vertex_map.rows - 1){
+    if (col >= (vertex_map.cols - 1) || row >= (vertex_map.rows - 1)){
+        if (col == (vertex_map.cols - 1) || row == (vertex_map.rows - 1)){
             normal_map(row, col) = make_float3(0.f,0.f,0.f);            // TODO: maybe compute them with vertex_map(row - 1, col) etc.
+            //valid_vertex_mask(row, col) = 0;
             return;
             /*sx = vertex_map(row - 1, col).x - vertex_map(row, col).x;
             sy = vertex_map(row - 1, col).y - vertex_map(row, col).y;
@@ -47,7 +52,8 @@ __global__ void kernel_compute_normal_map(cv::cuda::PtrStepSz<float3> vertex_map
             ty = vertex_map(row, col - 1).y - vertex_map(row, col).y;
             tz = vertex_map(row, col - 1).z - vertex_map(row, col).z;*/
         }else{
-            normal_map(row, col) = make_float3(0.f,0.f,0.f);
+            //normal_map(row, col) = make_float3(0.f,0.f,0.f);
+            //valid_vertex_mask(row, col) = 0;
             return;
         }
     }else{
@@ -80,13 +86,13 @@ void compute_vertex_map(const GpuMat& filtered_depth_map, GpuMat& vertex_map, Gp
     cudaDeviceSynchronize();
 }
 
-void compute_normal_map(const GpuMat& vertex_map, GpuMat& normal_map){
+void compute_normal_map(const GpuMat& vertex_map, GpuMat& normal_map, GpuMat& valid_vertex_mask){
     int threads = 32;
     dim3 T(threads, threads, 1);      // number of threads per block (depends on compute capability of your GPU)
     int blocks_x = (vertex_map.cols + T.x - 1) / T.x;
     int blocks_y = (vertex_map.rows + T.y - 1) / T.y;
     dim3 M(blocks_x, blocks_y, 1);       // number of thread blocks (depends on compute capability of your GPU)
-    kernel_compute_normal_map<<< M , T >>>(vertex_map, normal_map);
+    kernel_compute_normal_map<<< M , T >>>(vertex_map, normal_map, valid_vertex_mask);
     cudaDeviceSynchronize();
 }
 
