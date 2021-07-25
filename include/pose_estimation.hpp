@@ -6,6 +6,9 @@
 #include <opencv2/core/cuda.hpp>
 #include <opencv2/opencv.hpp>
 
+#include <Eigen/Dense>
+#include <Eigen/Geometry>
+
 #include "datatypes.hpp"
 
 using Vector3f_da = Eigen::Matrix<float, 3, 1, Eigen::DontAlign>;
@@ -19,12 +22,12 @@ void calculate_Ab(
     const Matrix3f_da& rotation, const Vector3f_da& translation,
     const CameraParameters& cam,
     const float& distance_threshold, const float& angle_threshold,
-    Eigen::Matrix<double, 6, 6, Eigen::RowMajor>& A, Eigen::Matrix<double, 6, 1>& b
+    Eigen::Matrix<double, 6, 6, Eigen::RowMajor>& AtA, Eigen::Matrix<double, 6, 1>& Atb
 );
 
 
 bool pose_estimation(
-    const PreprocessedData& data, const ModelData& model_data,
+    const ModelData& model_data, const PreprocessedData& data, 
     const CameraParameters& cam,
     const int& num_levels, const float& distance_threshold, const float& angle_threshold,
     const std::vector<int>& num_iterations,
@@ -37,10 +40,13 @@ bool pose_estimation(
     Eigen::Matrix3f global_rotation {prev_global_rotation};
 
     // ICP loop
-    Eigen::Matrix<double, 6, 6, Eigen::RowMajor> A;
-    Eigen::Matrix<double, 6, 1> b;
+    Eigen::Matrix<double, 6, 6, Eigen::RowMajor> AtA;
+    Eigen::Matrix<double, 6, 1> Atb;
+    bool flag_success = false;
     for (int level = num_levels - 1; level >= 0; --level)
     {
+        flag_success = false;
+        // printf("level : %d, %d\n", level, num_iterations[level]);
         for (int i = 0; i < num_iterations[level]; ++i) 
         {
             calculate_Ab(
@@ -50,27 +56,31 @@ bool pose_estimation(
                 global_rotation, global_translation, 
                 cam.getCameraParameters(level),
                 distance_threshold, sinf(angle_threshold / 180.f * M_PI),
-                A, b
+                AtA, Atb
             );
-
+            
             // Solve equation
-            if (fabs(A.determinant()) > 100000 && !isnan(A.determinant())) 
-            {
-                Eigen::Matrix<float, 6, 1> result{ A.fullPivLu().solve(b).cast<float>() };
+            double det = AtA.determinant();
+            printf("iter %d: det %f\n", i, det);
+            
+            std::cout << AtA << std::endl;
+            std::cout << Atb << std::endl;
+            
+            if (isnan(det)) continue;
+            flag_success = true;
 
-                // Update
-                auto rotation_c_update(
-                    Eigen::AngleAxisf(result(0), Eigen::Vector3f::UnitX())
-                    * Eigen::AngleAxisf(result(1), Eigen::Vector3f::UnitY()) 
-                    * Eigen::AngleAxisf(result(2), Eigen::Vector3f::UnitZ())
-                );
-                auto translation_c_update = result.tail<3>();
-
-                global_rotation = global_rotation * rotation_c_update;
-                global_translation = global_translation * rotation_c_update + translation_c_update;
-            }
+            Eigen::Matrix<double, 6, 1> result {AtA.fullPivLu().solve(Atb)};
+            Eigen::Matrix3f rotation_c_update = (
+                Eigen::AngleAxisd(result[2], Eigen::Vector3d::UnitZ())
+                * Eigen::AngleAxisd(result[1], Eigen::Vector3d::UnitY()) 
+                * Eigen::AngleAxisd(result[0], Eigen::Vector3d::UnitX())
+            ).matrix().cast<float>();
+            Eigen::Vector3f translation_c_update = result.tail<3>().cast<float>();
+            global_translation = rotation_c_update * global_translation + translation_c_update;
+            global_rotation = rotation_c_update * global_rotation;
         }
     }
+    if (!flag_success) return false;
 
     // new pose
     pose.block<3, 3>(0, 0) = global_rotation;

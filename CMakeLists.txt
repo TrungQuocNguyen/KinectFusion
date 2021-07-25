@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 2.8)
 project(kinectfusion)
 
-set(CMAKE_CXX_FLAGS "-O2 -Wall -Wextra")
+set(CMAKE_CXX_FLAGS "-O3 -Wextra")
 
 find_package(CUDA REQUIRED)
 include_directories(${CUDA_INCLUDE_DIRS})
@@ -22,4 +22,4 @@ cuda_add_executable(test_surface_reconstruction "./test/test_surface_reconstruct
 
 cuda_add_executable(test_surface_prediction "./test/test_surface_prediction.cpp" ${KERNELS})
 
-add_executable(kinectfusion "./src/kinectfusion.cpp")
+cuda_add_executable(test_kinectfusion "./test/test_kinectfusion.cpp" ${KERNELS})

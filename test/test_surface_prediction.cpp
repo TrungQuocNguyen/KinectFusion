@@ -1,26 +1,14 @@
+#include <kinectfusion.hpp>
+#include <dataset.hpp>
 #include <opencv2/viz/viz3d.hpp>
-#include "utils.hpp"
-#include "dataset.hpp"
-#include "datatypes.hpp"
-#include "surface_measurement.hpp"
-#include "surface_prediction.hpp"
-
-
-void surface_reconstruction(
-    const cv::cuda::GpuMat& depth, 
-    const CameraParameters& cam,
-    const Eigen::Matrix4f& T_c_w,
-    const float& truncation_distance,
-    TSDFData& volume
-);
 
 
 int main()
 {
     if (Config::setParameterFile("../data/tumrgbd.yaml") == false) return -1;
 
-    std::string dataset_dir = Config::get<std::string>("dataset_dir");
-    Dataset dataset = TUMRGBDDataset(dataset_dir, static_cast<TUMRGBDDataset::TUMRGBD>(Config::get<int>("tumrgbd")));
+    std::string tum_dataset_dir = Config::get<std::string>("tum_dataset_dir");
+    Dataset dataset = TUMRGBDDataset(tum_dataset_dir, static_cast<TUMRGBDDataset::TUMRGBD>(Config::get<int>("tumrgbd")));
 
     auto cam = dataset.getCameraParameters();
     Eigen::Matrix4f current_pose = Eigen::Matrix4f::Identity();
@@ -92,10 +80,12 @@ int main()
         sum_t += timer.print();
         std::cout << "[ FPS ] : " << (index + 1) * 1000.f / sum_t << std::endl;
 
-        cv::Mat normals, vertices;
-        model_data.normal_pyramid[0].download(normals);
-        model_data.vertex_pyramid[0].download(vertices);
-        cv::imshow("n", normals);
+        cv::Mat m_normals, m_vertices, d_normals;
+        data.normal_pyramid[0].download(d_normals);
+        model_data.normal_pyramid[0].download(m_normals);
+        model_data.vertex_pyramid[0].download(m_vertices);
+        cv::imshow("data normal", d_normals);
+        cv::imshow("model normal", m_normals);
         cv::imshow("img", img);
         int k = cv::waitKey(1);
         if (k == 'q') break;  // press q to quit
@@ -109,9 +99,9 @@ int main()
                 T(y, x) = current_pose(y, x);
             }
         }
-        cv::viz::WCloud point_cloud(vertices, img);
+        cv::viz::WCloud point_cloud(m_vertices, img);
         my_window.showWidget("points", point_cloud);
-        cv::viz::WCloudNormals normal_cloud(vertices, normals, 64, 0.10, cv::viz::Color::red());
+        cv::viz::WCloudNormals normal_cloud(m_vertices, m_normals, 64, 0.10, cv::viz::Color::red());
         my_window.showWidget("normals", normal_cloud);
 
         my_window.setWidgetPose("cam", cv::Affine3f(T));

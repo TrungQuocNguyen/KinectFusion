@@ -145,14 +145,14 @@ class ICLNUIMDataset : public Dataset
 public:
 	enum class ICLNUIM
 	{
-		LR_KT0,  // living room
-		LR_KT1,
-		LR_KT2,
-		LR_KT3,
-		OF_KT0,  // office room
-		OF_KT1,
-		OF_KT2,
-		OF_KT3,
+		LR_KT0 = 0,  // living room
+		LR_KT1 = 1,
+		LR_KT2 = 2,
+		LR_KT3 = 3,
+		OF_KT0 = 4,  // office room
+		OF_KT1 = 5,
+		OF_KT2 = 6,
+		OF_KT3 = 7,
 	};
 
 	ICLNUIMDataset(std::string &dataset_dir, ICLNUIM iclnuim)

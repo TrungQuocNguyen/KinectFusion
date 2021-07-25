@@ -4,7 +4,7 @@
 
 __global__ void kernel_update_tsdf(
     const PtrStepSz<float> depth, 
-    const CameraParameters cam, const Matrix3f_da R_c_w, const Vector3f_da t_c_w,
+    const CameraParameters cam, const Matrix3f_da rotation, const Vector3f_da translation,
     const int3 volume_size, const float voxel_scale,
     const float truncation_distance,
     PtrStepSz<short2> tsdf_volume
@@ -13,34 +13,33 @@ __global__ void kernel_update_tsdf(
     const uint x = blockIdx.x * blockDim.x + threadIdx.x;
     const uint y = blockIdx.y * blockDim.y + threadIdx.y;
 
-    uint roi = 10;
-    if (x < roi || x >= volume_size.x - roi || y < roi || y >= volume_size.y - roi) return;
+    if (x >= volume_size.x || y >= volume_size.y) return;
 
-    for (int z = 0; z < volume_size.z; ++z) {
+    for (int z = 0; z < volume_size.z; ++z)
+    {
         // 0.5f is for the centor of volume
-        const Vector3f_da pos_w(
+        const Vector3f_da voxel_g(
             (static_cast<float>(x) + 0.5f - volume_size.x / 2.f) * voxel_scale,
             (static_cast<float>(y) + 0.5f - volume_size.y / 2.f) * voxel_scale,
             (static_cast<float>(z) + 0.5f - volume_size.z / 2.f) * voxel_scale
-        );  // voxel position in world coordinate
+        );
 
-        const Vector3f_da pos_c = R_c_w * pos_w + t_c_w;  // voxel position in current coordinate
-        if (pos_c[2] <= 0) continue;
+        const Vector3f_da voxel_c = rotation * voxel_g + translation;
+        if (voxel_c[2] <= EPSILON) continue;
 
         const Vector2i_da uv(
-            __float2int_rn(pos_c[0] / pos_c[2] * cam.fx + cam.cx),
-            __float2int_rn(pos_c[1] / pos_c[2] * cam.fy + cam.cy)
+            __float2int_rn(voxel_c[0] / voxel_c[2] * cam.fx + cam.cx),
+            __float2int_rn(voxel_c[1] / voxel_c[2] * cam.fy + cam.cy)
         );  // project on current frame
         if (uv[0] < 0 || uv[0] >= depth.cols || uv[1] < 0 || uv[1] >= depth.rows) continue;
 
         const float d = depth.ptr(uv[1])[uv[0]];
         if (d < cam.min_depth || d > cam.max_depth) continue;  // in mm
 
-        const Vector3f_da lambda_vec((uv[0] - cam.cx) / cam.fx, (uv[1] - cam.cy) / cam.fy, 1.f);
+        const Vector3f_da lambda((uv[0] - cam.cx) / cam.fx, (uv[1] - cam.cy) / cam.fy, 1.f);
+        const float sdf = d - voxel_c.norm() / lambda.norm();
 
-        const float sdf = d - pos_c.norm() / lambda_vec.norm();
         if (sdf < - truncation_distance) break;
-
         float tsdf;
         if (sdf < 0)
         {

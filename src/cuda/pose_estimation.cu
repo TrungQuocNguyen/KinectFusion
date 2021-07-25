@@ -2,13 +2,48 @@
 #include <cuda/kernel_common.cuh>
 #include <datatypes.hpp>
 
+#define BLOCK_SIZE_X 32
+#define BLOCK_SIZE_Y 32
+
+template<int SIZE>
+static __device__ __forceinline__ void reduce(volatile double* buffer)
+{
+    const int thread_id = threadIdx.y * blockDim.x + threadIdx.x;
+    double value = buffer[thread_id];
+
+    if (SIZE >= 1024) {
+        if (thread_id < 512) buffer[thread_id] = value = value + buffer[thread_id + 512];
+        __syncthreads();
+    }
+    if (SIZE >= 512) {
+        if (thread_id < 256) buffer[thread_id] = value = value + buffer[thread_id + 256];
+        __syncthreads();
+    }
+    if (SIZE >= 256) {
+        if (thread_id < 128) buffer[thread_id] = value = value + buffer[thread_id + 128];
+        __syncthreads();
+    }
+    if (SIZE >= 128) {
+        if (thread_id < 64) buffer[thread_id] = value = value + buffer[thread_id + 64];
+        __syncthreads();
+    }
+
+    if (thread_id < 32) {
+        if (SIZE >= 64) buffer[thread_id] = value = value + buffer[thread_id + 32];
+        if (SIZE >= 32) buffer[thread_id] = value = value + buffer[thread_id + 16];
+        if (SIZE >= 16) buffer[thread_id] = value = value + buffer[thread_id + 8];
+        if (SIZE >= 8) buffer[thread_id] = value = value + buffer[thread_id + 4];
+        if (SIZE >= 4) buffer[thread_id] = value = value + buffer[thread_id + 2];
+        if (SIZE >= 2) buffer[thread_id] = value = value + buffer[thread_id + 1];
+    }
+}
 
 
 __global__ void kernel_pose_estimate(
     const PtrStep<float3> prev_vertex_map, const PtrStep<float3> prev_normal_map,
-    const PtrStepSz<float3> vertex_map, const PtrStep<float3> normal_map,
+    const PtrStepSz<float3> curr_vertex_map, const PtrStep<float3> curr_normal_map,
     const Matrix3f_da prev_rotation, const Vector3f_da prev_translation,
-    const Matrix3f_da rotation, const Vector3f_da translation,
+    const Matrix3f_da curr_rotation, const Vector3f_da curr_translation,
     const CameraParameters cam,
     const float distance_threshold, const float angle_threshold,
     PtrStep<double> global_buffer
@@ -16,102 +51,228 @@ __global__ void kernel_pose_estimate(
 {
     const uint x = blockIdx.x * blockDim.x + threadIdx.x;
     const uint y = blockIdx.y * blockDim.y + threadIdx.y;
-    if (x >= vertex_map.cols || y <= vertex_map.rows) return;
-
-    const float3* vertex = &vertex_map.ptr(y)[x];
-    if (vertex->z < 1e-5) return;
-    Vector3f_da vertex_g = rotation * Vector3f_da(vertex->x, vertex->y, vertex->z) + prev_translation;
-
-    const float3* prev_vertex = &prev_vertex_map.ptr(y)[x];
-
-    const float3* normal = &normal_map.ptr(y)[x];
-    if (normal->x + normal->y + normal->z < 1e-7) return;
-
-    Vector3f_da normal_c;
-    normal_c[0] = normal->x;
-    
-
-    /*
-    Vector3f_da vertex_camera = (global_vertex - prev_translation) * prev_rotation;
-    Vector2i_da point(
-        __float2int_rd(vertex_camera[0] * cam.fx / vertex_camera[2] + cam.cx + 0.5f),
-        __float2int_rd(vertex_camera[1] * cam.fy / vertex_camera[2] + cam.cy + 0.5f)
-    );
-
-    if (point[0] < 0 || point[0] >= cam.width || point[1] < 0 || point[1] >= cam.height || vertex_camera[2] < 0) return;
-
-    Vector3f_da prev_global_normal;
-    prev_global_normal[0] = prev_normal_map.ptr(point[1])[point[0]].x;
-
-    if (isnan(prev_global_normal[0])) return;
-    
-    Vector3f_da prev_global_vertex;
-    prev_global_vertex[0] = prev_vertex_map.ptr(point[1])[point[0]].x;
-    prev_global_vertex[1] = prev_vertex_map.ptr(point[1])[point[0]].y;
-    prev_global_vertex[2] = prev_vertex_map.ptr(point[1])[point[0]].z;
-
-    const float distance = (prev_global_vertex - vertex_current_global).norm();
-    if (distance <= distance_threshold)
+    // if (x >= curr_vertex_map.cols || y >= curr_vertex_map.rows) return;
+    float row[7] {};
+    if (x <= curr_vertex_map.cols - 1 && y <= curr_vertex_map.rows - 1)
     {
-        normal_current[1] = normal_map_current.ptr(y)[x].y;
-        normal_current[2] = normal_map_current.ptr(y)[x].z;
-
-        Vector3f_da global_normal = rotation * normal;
-
-        prev_global_normal[1] = prev_normal_map.ptr(point[1])[point[0]].y;
-        prev_global_normal[2] = prev_normal_map.ptr(point[1])[point[0]].z;
-
-        const float sine = global_normal.cross(prev_global_normal).norm();
-        
-        if (sine >= angle_threshold)
+        const float3* curr_vertex = &curr_vertex_map.ptr(y)[x];
+        if (curr_vertex->z > 1e-5)
         {
-            *(Vector3f_da*)&row[0] = global_vertex.cross(prev_global_normal);
-            *(Vector3f_da*)&row[3] = prev_global_normal;
-            row[6] = prev_global_normal.dot(prev_global_vertex - global_vertex);
+            const Vector3f_da curr_vertex_g = curr_rotation * Vector3f_da(curr_vertex->x, curr_vertex->y, curr_vertex->z) + curr_translation;
+            const Vector3f_da curr_vertex_c = prev_rotation.transpose() * (curr_vertex_g - prev_translation);
+
+            const float3* curr_normal = &curr_normal_map.ptr(y)[x];
+            if (abs(curr_normal->x) + abs(curr_normal->y) + abs(curr_normal->z) > 1e-5)
+            {
+                const Vector3f_da curr_normal_g = curr_rotation * Vector3f_da(curr_normal->x, curr_normal->y, curr_normal->z);
+                const Vector2i_da projected_pt(
+                    __float2int_rd(curr_vertex_c[0] * cam.fx / curr_vertex_c[2] + cam.cx + 0.5f),
+                    __float2int_rd(curr_vertex_c[1] * cam.fy / curr_vertex_c[2] + cam.cy + 0.5f)
+                );
+
+                if (projected_pt[0] >= 0 && projected_pt[0] <= curr_vertex_map.cols - 1 && projected_pt[1] >= 0 && projected_pt[1] <= curr_vertex_map.rows - 1)
+                {
+                    const float3* prev_vertex = &prev_vertex_map.ptr(projected_pt[1])[projected_pt[0]];
+                    if (prev_vertex->z > 1e-5)
+                    {
+                        const Vector3f_da prev_vertex_g(prev_vertex->x, prev_vertex->y, prev_vertex->z);
+                    
+                        if ((curr_vertex_g - prev_vertex_g).norm() <= distance_threshold)
+                        {
+                            const float3* prev_normal = &prev_normal_map.ptr(projected_pt[1])[projected_pt[0]];
+                            if (abs(prev_normal->x) + abs(prev_normal->y) + abs(prev_normal->z) > 1e-5)
+                            {
+                                const Vector3f_da prev_normal_g {prev_normal->x, prev_normal->y, prev_normal->z};
+                                if (abs(curr_normal_g.dot(prev_normal_g)) >= angle_threshold)
+                                {
+                                    *(Vector3f_da*) &row[0] = curr_vertex_g.cross(prev_normal_g);
+                                    *(Vector3f_da*) &row[3] = prev_normal_g;
+                                    row[6] = prev_normal_g.dot(prev_vertex_g - curr_vertex_g);
+                                }
+                            }                            
+                        }
+                    }
+                }
+            }            
         }
-        else
+    }    
+    
+    __shared__ double smem[BLOCK_SIZE_X * BLOCK_SIZE_Y];
+    const int tid = threadIdx.y * blockDim.x + threadIdx.x;
+
+    int shift = 0;
+    for (int i = 0; i < 6; ++i) 
+    {
+        for (int j = i; j < 7; ++j)
         {
-            row[0] = row[1] = row[2] = row[3] = row[4] = row[5] = row[6] = 0.f;
+            __syncthreads();
+            smem[tid] = row[i] * row[j];
+            __syncthreads();
+
+            reduce<BLOCK_SIZE_X * BLOCK_SIZE_Y>(smem);
+
+            if (tid == 0)
+            {
+                global_buffer.ptr(shift++)[gridDim.x * blockIdx.y + blockIdx.x] = smem[0];
+            }                
         }
-    }   
+    }
+}
+
+
+__global__ void estimate_kernel(
+    const PtrStep<float3> prev_vertex_map, const PtrStep<float3> prev_normal_map,
+    const PtrStepSz<float3> vertex_map, const PtrStep<float3> normal_map,
+    const Matrix3f_da prev_rotation, const Vector3f_da prev_translation,
+    const Matrix3f_da rotation, const Vector3f_da translation,
+    const CameraParameters cam,
+    const float distance_threshold, const float angle_threshold,
+    PtrStep<double> global_buffer
+)    
+{
+    const int x = blockIdx.x * blockDim.x + threadIdx.x;
+    const int y = blockIdx.y * blockDim.y + threadIdx.y;
+
+    Vector3f_da n, d, s;
+    bool correspondence_found = false;
+
+    if (x < vertex_map.cols && y < vertex_map.rows)
+    {
+        Vector3f_da curr_normal;
+        curr_normal.x() = normal_map.ptr(y)[x].x;
+
+        if (!isnan(curr_normal.x())) 
+        {
+            Vector3f_da curr_vertex(
+                vertex_map.ptr(y)[x].x,
+                vertex_map.ptr(y)[x].y,
+                vertex_map.ptr(y)[x].z
+            );
+
+            Vector3f_da curr_vertex_g = rotation * curr_vertex + translation;
+            Vector3f_da curr_vertex_c = prev_rotation.transpose() * (curr_vertex_g - prev_translation);
+
+            Eigen::Vector2i point(
+                __float2int_rd(curr_vertex_c.x() * cam.fx / curr_vertex_c.z() + cam.cx + 0.5f),
+                __float2int_rd(curr_vertex_c.y() * cam.fy / curr_vertex_c.z() + cam.cy + 0.5f)
+            );
+
+            if (point.x() >= 0 && point.y() >= 0 && point.x() < vertex_map.cols && point.y() < vertex_map.rows && curr_vertex_c.z() >= 0)
+            {
+                Vector3f_da prev_normal_g;
+                prev_normal_g.x() = prev_normal_map.ptr(point.y())[point.x()].x;
+
+                if (!isnan(prev_normal_g.x()))
+                {
+                    Vector3f_da prev_vertex_g(
+                        prev_vertex_map.ptr(point.y())[point.x()].x,
+                        prev_vertex_map.ptr(point.y())[point.x()].y,
+                        prev_vertex_map.ptr(point.y())[point.x()].z
+                    );
+
+                    const float distance = (prev_vertex_g - curr_vertex_g).norm();
+                    if (distance <= distance_threshold)
+                    {
+                        curr_normal.y() = normal_map.ptr(y)[x].y;
+                        curr_normal.z() = normal_map.ptr(y)[x].z;
+
+                        Vector3f_da curr_normal_g = rotation * curr_normal;
+
+                        prev_normal_g.y() = prev_normal_map.ptr(point.y())[point.x()].y;
+                        prev_normal_g.z() = prev_normal_map.ptr(point.y())[point.x()].z;
+
+                        const float sine = curr_normal_g.cross(prev_normal_g).norm();
+                        // const float sine = curr_normal_g.dot(prev_normal_g);
+
+                        if (sine >= angle_threshold)
+                        {
+                            n = prev_normal_g;
+                            d = prev_vertex_g;
+                            s = curr_vertex_g;
+
+                            correspondence_found = true;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    float row[7];
+
+    if (correspondence_found) 
+    {
+        *(Vector3f_da*) &row[0] = s.cross(n);
+        *(Vector3f_da*) &row[3] = n;
+        row[6] = n.dot(d - s);
+    }
+    else
+    {
+        row[0] = row[1] = row[2] = row[3] = row[4] = row[5] = row[6] = 0.f;
+    }        
 
     __shared__ double smem[BLOCK_SIZE_X * BLOCK_SIZE_Y];
     const int tid = threadIdx.y * blockDim.x + threadIdx.x;
 
     int shift = 0;
-    for (int i = 0; i < 6; ++i) { 
-        for (int j = i; j < 7; ++j) { 
+    for (int i = 0; i < 6; ++i)
+    {
+        for (int j = i; j < 7; ++j)
+        {
             __syncthreads();
             smem[tid] = row[i] * row[j];
             __syncthreads();
 
-            if (tid == 0)
-                global_buffer.ptr(shift++)[gridDim.x * blockIdx.y + blockIdx.x] = smem[0];
+            reduce<BLOCK_SIZE_X * BLOCK_SIZE_Y>(smem);
+
+            if (tid == 0) global_buffer.ptr(shift++)[gridDim.x * blockIdx.y + blockIdx.x] = smem[0];
         }
     }
-    */
 }
 
+
+__global__ void reduction_kernel(
+    PtrStep<double> global_buffer, const int length, PtrStep<double> output
+)
+{
+    double sum = 0.0;
+    for (int t = threadIdx.x; t < length; t += 512)
+    {
+        sum += *(global_buffer.ptr(blockIdx.x) + t);
+    }        
+
+    __shared__ double smem[512];
+
+    smem[threadIdx.x] = sum;
+    __syncthreads();
+
+    reduce<512>(smem);
+
+    if (threadIdx.x == 0) output.ptr(blockIdx.x)[0] = smem[0];
+};
+
 void calculate_Ab(
-    const cv::cuda::GpuMat& prev_vertex_map, const cv::cuda::GpuMat& prev_normal_map,
-    const cv::cuda::GpuMat& vertex_map, const cv::cuda::GpuMat& normal_map,
+    const GpuMat& prev_vertex_map, const GpuMat& prev_normal_map,
+    const GpuMat& vertex_map, const GpuMat& normal_map,
     const Matrix3f_da& prev_rotation, const Vector3f_da& prev_translation,
     const Matrix3f_da& rotation, const Vector3f_da& translation,
     const CameraParameters& cam,
     const float& distance_threshold, const float& angle_threshold,
-    Eigen::Matrix<double, 6, 6, Eigen::RowMajor>& A, Eigen::Matrix<double, 6, 1>& b
+    Eigen::Matrix<double, 6, 6, Eigen::RowMajor>& AtA, Eigen::Matrix<double, 6, 1>& Atb
 )
 {
-    return;
-    const dim3 threads(32, 32);
+    const dim3 threads(BLOCK_SIZE_X, BLOCK_SIZE_Y);
+    // const dim3 blocks(divUp(vertex_map.cols, threads.x), divUp(vertex_map.rows, threads.y));
+
     const dim3 blocks(
-        cv::cudev::divUp(vertex_map.cols, threads.x),
-        cv::cudev::divUp(vertex_map.rows, threads.y)
+        static_cast<unsigned int>(std::ceil(vertex_map.cols / threads.x)),
+        static_cast<unsigned int>(std::ceil(vertex_map.rows / threads.y))
     );
 
-    cv::cuda::GpuMat sum_buffer {cv::cuda::createContinuous(27, 1, CV_64FC1)};
-    cv::cuda::GpuMat global_buffer {cv::cuda::createContinuous(27, blocks.x * blocks.y, CV_64FC1)};
+    GpuMat sum_buffer { cv::cuda::createContinuous(27, 1, CV_64FC1) };
+    GpuMat global_buffer { cv::cuda::createContinuous(27, blocks.x * blocks.y, CV_64FC1) };
     kernel_pose_estimate<<<blocks, threads>>>(
+    // estimate_kernel<<<blocks, threads>>>(
         prev_vertex_map, prev_normal_map,
         vertex_map, normal_map,
         prev_rotation, prev_translation,
@@ -120,11 +281,10 @@ void calculate_Ab(
         distance_threshold, angle_threshold,
         global_buffer
     );
-
-    /*
-    kernel_reduction<<<27, 512>>>(global_buffer, blocks.x * blocks * y, sum_buffer);
     
-    cv::Mat host_data{ 27, 1, CV_64FC1 };
+    reduction_kernel<<<27, 512>>>(global_buffer, blocks.x * blocks.y, sum_buffer);
+
+    cv::Mat host_data { 27, 1, CV_64FC1 };
     sum_buffer.download(host_data);
 
     int shift = 0;
@@ -135,13 +295,12 @@ void calculate_Ab(
             double value = host_data.ptr<double>(shift++)[0];
             if (j == 6)
             {
-                b.prev_data()[i] = value;
+                Atb.data()[i] = value;
             }
             else
             {
-                A.prev_data()[j * 6 + i] = A.prev_data()[i * 6 + j] = value;
+                AtA.data()[j * 6 + i] = AtA.data()[i * 6 + j] = value;
             }
         }
     }
-    */
 }

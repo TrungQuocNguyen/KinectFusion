@@ -5,6 +5,7 @@
 #include <opencv2/core/cuda.hpp>
 #include <opencv2/cudev/common.hpp>
 #include <Eigen/Core>
+#include <Eigen/Dense>
 
 using cv::cuda::PtrStep;
 using cv::cuda::PtrStepSz;
@@ -19,3 +20,4 @@ using Matrix3f_da = Eigen::Matrix<float, 3, 3, Eigen::DontAlign>;
 constexpr int SHORT_MAX = 32767;
 constexpr float INV_SHORT_MAX = 0.0000305185f;  // 1.f / SHORT_MAX;
 constexpr int MAX_WEIGHT = 128;
+constexpr float EPSILON = 1e-7;

@@ -35,14 +35,14 @@ __global__ void kernel_compute_normal_map(const PtrStepSz<float3> vertex_map, Pt
     if (col >= vertex_map.cols - 1 || row >= vertex_map.rows - 1) return;
 
     const float3* center = &vertex_map.ptr(row)[col];
-    if (center->z <= 1e-5)
+    const float3* right = &vertex_map.ptr(row + 1)[col];
+    const float3* down = &vertex_map.ptr(row)[col + 1];
+
+    if (center->z <= EPSILON || right->z <= EPSILON || down->z <= EPSILON)
     {
         normal_map.ptr(row)[col] = make_float3(0, 0, 0);
         return;
     }
-
-    const float3* right = &vertex_map.ptr(row + 1)[col];
-    const float3* down = &vertex_map.ptr(row)[col + 1];
 
     const float3 s = make_float3(right->x - center->x, right->y - center->y, right->z - center->z);
     const float3 t = make_float3(down->x - center->x, down->y - center->y, down->z - center->z);
@@ -50,7 +50,7 @@ __global__ void kernel_compute_normal_map(const PtrStepSz<float3> vertex_map, Pt
     const float3 cross = make_float3(s.y * t.z - s.z * t.y, s.z * t.x - s.x * t.z, s.x * t.y - s.y * t.x);
     const float norm = sqrt(cross.x * cross.x + cross.y * cross.y + cross.z * cross.z);
 
-    if (norm < 1e-7)
+    if (norm < EPSILON)
     {
         normal_map.ptr(row)[col] = make_float3(0, 0, 0);
     }

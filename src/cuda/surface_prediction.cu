@@ -3,7 +3,7 @@
 
 
 __device__ __forceinline__ float interpolate_trilinearly(
-    const Vector3f_da& point, const PtrStepSz<short2>& volume,
+    const Vector3f_da& point, const PtrStep<short2>& volume,
     const int3& volume_size, const float& voxel_scale
 ) {
     Vector3i_da point_in_grid = point.cast<int>();
@@ -56,10 +56,10 @@ __device__ __forceinline__ float get_max_time(
 
 
 __global__ void kernel_raycast_tsdf(
-    const PtrStepSz<short2> tsdf_volume,
+    const PtrStep<short2> tsdf_volume,
     const CameraParameters cam, const Matrix3f_da rotation, const Vector3f_da translation,
     const int3 volume_size, const float voxel_scale, const float truncation_distance,
-    PtrStepSz<float3> vertex_map, PtrStepSz<float3> normal_map
+    PtrStepSz<float3> vertex_map, PtrStep<float3> normal_map
 ) 
 {
     const int x = blockIdx.x * blockDim.x + threadIdx.x;
@@ -93,7 +93,7 @@ __global__ void kernel_raycast_tsdf(
     const float max_search_length = ray_length + volume_range.x * sqrt(2.f);
     for (; ray_length < max_search_length; ray_length += truncation_distance * 0.5f)
     {
-        grid = (translation + (ray_direction * (ray_length + truncation_distance * 0.5f))) / voxel_scale + offset;
+        grid = (translation + ray_direction * (ray_length + truncation_distance * 0.5f)) / voxel_scale + offset;
 
         if (grid[0] < 0 || grid[0] > volume_size.x - 1 ||
             grid[1] < 0 || grid[1] > volume_size.y - 1 ||
@@ -154,7 +154,7 @@ __global__ void kernel_raycast_tsdf(
 
             normal.z() = (Fz1 - Fz2);
 
-            if (normal.norm() == 0) break;
+            if (normal.norm() < EPSILON) break;
 
             normal.normalize();
 
@@ -297,10 +297,7 @@ void raycast_tsdf(
     normal_map.setTo(0);
 
     const dim3 threads(32, 32);
-    const dim3 blocks(
-        cv::cudev::divUp(tsdf_data.volume_size.x, threads.x),
-        cv::cudev::divUp(tsdf_data.volume_size.y, threads.y)
-    );
+    const dim3 blocks(divUp(tsdf_data.volume_size.x, threads.x), divUp(tsdf_data.volume_size.y, threads.y));
 
     kernel_raycast_tsdf<<<blocks, threads>>>(
         tsdf_data.tsdf, cam, 
@@ -327,10 +324,7 @@ void raycast_tsdf_using_depth(
     normal_map.setTo(0);
 
     const dim3 threads(32, 32);
-    const dim3 blocks(
-        cv::cudev::divUp(tsdf_data.volume_size.x, threads.x),
-        cv::cudev::divUp(tsdf_data.volume_size.y, threads.y)
-    );
+    const dim3 blocks(divUp(tsdf_data.volume_size.x, threads.x), divUp(tsdf_data.volume_size.y, threads.y));
 
     kernel_raycast_tsdf_using_depth<<<blocks, threads>>>(
         tsdf_data.tsdf, depth,

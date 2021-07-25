@@ -1,35 +1,14 @@
+#include <kinectfusion.hpp>
+#include <dataset.hpp>
 #include <opencv2/viz/viz3d.hpp>
-#include "config.hpp"
-#include "dataset.hpp"
-#include "datatypes.hpp"
-#include "surface_measurement.hpp"
-#include "pose_estimation.hpp"
-
-
-void surface_prediction(
-    const TSDFData &volume,
-    const CameraParameters &cam,
-    const Eigen::Matrix4f T_c_w,
-    const float trancation_distance,
-    GpuMat &vertex_map, GpuMat &normal_map
-);
-
-
-void surface_reconstruction(
-    const cv::cuda::GpuMat& depth, 
-    const CameraParameters& cam,
-    const Eigen::Matrix4f T_c_w,
-    const float truncation_distance,
-    TSDFData& volume
-);
 
 
 int main()
 {
-    if (Config::setParameterFile("../data/kinfu_tumrgbd.yaml") == false) return -1;
+    if (Config::setParameterFile("../data/tumrgbd.yaml") == false) return -1;
 
-    std::string dataset_dir = Config::get<std::string>("dataset_dir");
-    Dataset dataset = TUMRGBDDataset(dataset_dir, static_cast<TUMRGBDDataset::TUMRGBD>(Config::get<int>("tumrgbd")));
+    std::string tum_dataset_dir = Config::get<std::string>("tum_dataset_dir");
+    Dataset dataset = TUMRGBDDataset(tum_dataset_dir, static_cast<TUMRGBDDataset::TUMRGBD>(Config::get<int>("tumrgbd")));
 
     auto cam = dataset.getCameraParameters();
     cam.max_depth = Config::get<float>("max_depth");
@@ -58,7 +37,7 @@ int main()
     std::vector<int> icp_iterations(num_levels);
     for (int i = 0; i < num_levels; ++i)
     {
-        icp_iterations.push_back(Config::get<int>("icp_iteration_" + std::to_string(i)));
+        icp_iterations[i] = Config::get<int>("icp_iteration_" + std::to_string(i));
     }
     const float truncation_distance {Config::get<float>("truncation_distance")};
     const bool flag_use_gt_pose {Config::get<int>("flag_use_gt_pose") == 1};
@@ -66,10 +45,11 @@ int main()
         make_int3(Config::get<int>("tsdf_size_x"), Config::get<int>("tsdf_size_y"), Config::get<int>("tsdf_size_z")), 
         Config::get<int>("tsdf_scale")
     );
-    PreprocessedData data(num_levels);
+    PreprocessedData data(num_levels, cam);
     ModelData model_data(num_levels, cam);
     for (int index = 0; index < dataset.size(); ++index)
     {
+        printf("index : %d\n", index);
         cv::Mat img, depth;
         dataset.getData(index, img, depth);
         depth *= 1000.f;  // m -> mm
@@ -87,29 +67,33 @@ int main()
             else
             {
                 bool icp_success = pose_estimation(
-                    current_pose, data, model_data, cam,
+                    model_data, data, cam,
                     num_levels, distance_threshold, angle_threshold,
-                    icp_iterations
+                    icp_iterations,
+                    current_pose
                 );
             }            
         }
 
         surface_reconstruction(data.depth_pyramid[0], cam, current_pose, truncation_distance, tsdf_data);
-
-        for (int level = 0; level < num_levels; ++level)
-        {
-            surface_prediction(
-                tsdf_data, cam.getCameraParameters(level), current_pose,
-                truncation_distance,
-                model_data.vertex_pyramid[level], model_data.normal_pyramid[level]
-            );
-        }
+        surface_prediction(tsdf_data, cam, current_pose, truncation_distance, num_levels, model_data);
 
         cv::Mat normals, vertices;
         model_data.normal_pyramid[0].download(normals);
         model_data.vertex_pyramid[0].download(vertices);
-        cv::imshow("n", normals);
+        /*
+        for (int level = 0; level < num_levels; ++level)
+        {
+            cv::Mat n, v;
+            model_data.normal_pyramid[level].download(n);
+            model_data.vertex_pyramid[level].download(v);
+            cv::imshow("n" + std::to_string(level), n);
+            cv::imshow("v" + std::to_string(level), v);
+        }
+        */
+        cv::imshow("normal", normals);
         cv::imshow("img", img);
+        cv::imshow("depth", depth);
         int k = cv::waitKey(1);
         if (k == 'q') break;  // press q to quit
         else if (k == ' ') cv::waitKey(0);  // press space to stop
