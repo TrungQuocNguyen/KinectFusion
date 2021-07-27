@@ -9,10 +9,10 @@
 #include "datatypes.hpp"
 
 // Forward declarartions
-void compute_vertex_map(const GpuMat& depth_map, const CameraParameters& cam, GpuMat& vertex_map);
-void compute_normal_map(const GpuMat& vertex_map, GpuMat& normal_map);
+void computeVertexMap(const GpuMat& depth_map, const CameraParameters& cam, GpuMat& vertex_map);
+void computeNormalMap(const GpuMat& vertex_map, GpuMat& normal_map);
 
-void surface_measurement(
+void surfaceMeasurement(
     const cv::Mat& depth, const cv::Mat& img,
     const int& num_layers, const int& kernel_size, const float& sigma_color, const float& sigma_spatial,
     const CameraParameters& cam,
@@ -42,7 +42,7 @@ void surface_measurement(
     // Step 3: Compute vertex and normal maps 
     for (int i = 0; i < num_layers; i++)
     {
-        compute_vertex_map(data.depth_pyramid[i], cam.getCameraParameters(i), data.vertex_pyramid[i]);
-        compute_normal_map(data.vertex_pyramid[i], data.normal_pyramid[i]);
+        computeVertexMap(data.depth_pyramid[i], cam.getCameraParameters(i), data.vertex_pyramid[i]);
+        computeNormalMap(data.vertex_pyramid[i], data.normal_pyramid[i]);
     }
 }

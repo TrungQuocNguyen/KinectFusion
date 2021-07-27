@@ -11,24 +11,29 @@ static __device__ __forceinline__ void reduce(volatile double* buffer)
     const int thread_id = threadIdx.y * blockDim.x + threadIdx.x;
     double value = buffer[thread_id];
 
-    if (SIZE >= 1024) {
+    if (SIZE >= 1024) 
+    {
         if (thread_id < 512) buffer[thread_id] = value = value + buffer[thread_id + 512];
         __syncthreads();
     }
-    if (SIZE >= 512) {
+    if (SIZE >= 512) 
+    {
         if (thread_id < 256) buffer[thread_id] = value = value + buffer[thread_id + 256];
         __syncthreads();
     }
-    if (SIZE >= 256) {
+    if (SIZE >= 256) 
+    {
         if (thread_id < 128) buffer[thread_id] = value = value + buffer[thread_id + 128];
         __syncthreads();
     }
-    if (SIZE >= 128) {
+    if (SIZE >= 128)
+    {
         if (thread_id < 64) buffer[thread_id] = value = value + buffer[thread_id + 64];
         __syncthreads();
     }
 
-    if (thread_id < 32) {
+    if (thread_id < 32)
+    {
         if (SIZE >= 64) buffer[thread_id] = value = value + buffer[thread_id + 32];
         if (SIZE >= 32) buffer[thread_id] = value = value + buffer[thread_id + 16];
         if (SIZE >= 16) buffer[thread_id] = value = value + buffer[thread_id + 8];
@@ -51,7 +56,6 @@ __global__ void kernel_pose_estimate(
 {
     const uint x = blockIdx.x * blockDim.x + threadIdx.x;
     const uint y = blockIdx.y * blockDim.y + threadIdx.y;
-    // if (x >= curr_vertex_map.cols || y >= curr_vertex_map.rows) return;
     float row[7] {};
     if (x <= curr_vertex_map.cols - 1 && y <= curr_vertex_map.rows - 1)
     {
@@ -181,10 +185,7 @@ __global__ void estimate_kernel(
                         prev_normal_g.y() = prev_normal_map.ptr(point.y())[point.x()].y;
                         prev_normal_g.z() = prev_normal_map.ptr(point.y())[point.x()].z;
 
-                        const float sine = curr_normal_g.cross(prev_normal_g).norm();
-                        // const float sine = curr_normal_g.dot(prev_normal_g);
-
-                        if (sine >= angle_threshold)
+                        if (curr_normal_g.dot(prev_normal_g) >= angle_threshold)
                         {
                             n = prev_normal_g;
                             d = prev_vertex_g;
@@ -251,7 +252,8 @@ __global__ void reduction_kernel(
     if (threadIdx.x == 0) output.ptr(blockIdx.x)[0] = smem[0];
 };
 
-void calculate_Ab(
+
+void calculateAb(
     const GpuMat& prev_vertex_map, const GpuMat& prev_normal_map,
     const GpuMat& vertex_map, const GpuMat& normal_map,
     const Matrix3f_da& prev_rotation, const Vector3f_da& prev_translation,
@@ -262,7 +264,6 @@ void calculate_Ab(
 )
 {
     const dim3 threads(BLOCK_SIZE_X, BLOCK_SIZE_Y);
-    // const dim3 blocks(divUp(vertex_map.cols, threads.x), divUp(vertex_map.rows, threads.y));
 
     const dim3 blocks(
         static_cast<unsigned int>(std::ceil(vertex_map.cols / threads.x)),
@@ -272,7 +273,6 @@ void calculate_Ab(
     GpuMat sum_buffer { cv::cuda::createContinuous(27, 1, CV_64FC1) };
     GpuMat global_buffer { cv::cuda::createContinuous(27, blocks.x * blocks.y, CV_64FC1) };
     kernel_pose_estimate<<<blocks, threads>>>(
-    // estimate_kernel<<<blocks, threads>>>(
         prev_vertex_map, prev_normal_map,
         vertex_map, normal_map,
         prev_rotation, prev_translation,

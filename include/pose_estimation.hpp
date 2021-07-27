@@ -15,7 +15,7 @@ using Vector3f_da = Eigen::Matrix<float, 3, 1, Eigen::DontAlign>;
 using Matrix3f_da = Eigen::Matrix<float, 3, 3, Eigen::DontAlign>;
 
 
-void calculate_Ab(
+void calculateAb(
     const cv::cuda::GpuMat& prev_vertex_map, const cv::cuda::GpuMat& prev_normal_map,
     const cv::cuda::GpuMat& vertex_map_current, const cv::cuda::GpuMat& normal_map_current,
     const Matrix3f_da& prev_rotation, const Vector3f_da& prev_translation,
@@ -26,7 +26,7 @@ void calculate_Ab(
 );
 
 
-bool pose_estimation(
+bool poseEstimation(
     const ModelData& model_data, const FrameData& data, 
     const CameraParameters& cam,
     const int& num_levels, const float& distance_threshold, const float& angle_threshold,
@@ -49,7 +49,7 @@ bool pose_estimation(
         // printf("level : %d, %d\n", level, num_iterations[level]);
         for (int i = 0; i < num_iterations[level]; ++i) 
         {
-            calculate_Ab(
+            calculateAb(
                 model_data.vertex_pyramid[level], model_data.normal_pyramid[level], 
                 data.vertex_pyramid[level], data.normal_pyramid[level],
                 prev_global_rotation, prev_global_translation,

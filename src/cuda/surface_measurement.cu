@@ -61,7 +61,7 @@ __global__ void kernel_compute_normal_map(const PtrStepSz<float3> vertex_map, Pt
 }
 
 
-void compute_vertex_map(const GpuMat& depth_map, const CameraParameters& cam, GpuMat& vertex_map)
+void computeVertexMap(const GpuMat& depth_map, const CameraParameters& cam, GpuMat& vertex_map)
 {
     const dim3 blocks(32, 32);
     const dim3 grid(divUp(depth_map.cols, blocks.x), divUp(depth_map.rows, blocks.y));
@@ -71,7 +71,7 @@ void compute_vertex_map(const GpuMat& depth_map, const CameraParameters& cam, Gp
 }
 
 
-void compute_normal_map(const GpuMat& vertex_map, GpuMat& normal_map)
+void computeNormalMap(const GpuMat& vertex_map, GpuMat& normal_map)
 {
     const dim3 blocks(32, 32);
     const dim3 grid(divUp(vertex_map.cols, blocks.x), divUp(vertex_map.rows, blocks.y));
