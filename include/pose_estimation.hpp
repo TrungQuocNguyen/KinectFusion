@@ -27,7 +27,7 @@ void calculate_Ab(
 
 
 bool pose_estimation(
-    const ModelData& model_data, const PreprocessedData& data, 
+    const ModelData& model_data, const FrameData& data, 
     const CameraParameters& cam,
     const int& num_levels, const float& distance_threshold, const float& angle_threshold,
     const std::vector<int>& num_iterations,
@@ -61,22 +61,16 @@ bool pose_estimation(
             
             // Solve equation
             double det = AtA.determinant();
-
-            /*
-            printf("iter %d: det %f\n", i, det);
-            std::cout << AtA << std::endl;
-            std::cout << Atb << std::endl;
-            */
             
             if (isnan(det)) continue;
             flag_success = true;
 
             Eigen::Matrix<double, 6, 1> result {AtA.fullPivLu().solve(Atb)};
-            Eigen::Matrix3f rotation_c_update = (
+            auto rotation_c_update = (
                 Eigen::AngleAxisd(result[2], Eigen::Vector3d::UnitZ())
-                * Eigen::AngleAxisd(result[1], Eigen::Vector3d::UnitY()) 
+                * Eigen::AngleAxisd(result[1], Eigen::Vector3d::UnitY())
                 * Eigen::AngleAxisd(result[0], Eigen::Vector3d::UnitX())
-            ).matrix().cast<float>();
+            ).cast<float>().toRotationMatrix();
             Eigen::Vector3f translation_c_update = result.tail<3>().cast<float>();
             global_translation = rotation_c_update * global_translation + translation_c_update;
             global_rotation = rotation_c_update * global_rotation;
@@ -87,6 +81,6 @@ bool pose_estimation(
     // new pose
     pose.block<3, 3>(0, 0) = global_rotation;
     pose.block<3, 1>(0, 3) = global_translation;
-
+    
     return true;
 }

@@ -1,25 +1,11 @@
 #pragma once
 
 #include <cuda_runtime.h>
+#include <Eigen/Dense>
+#include <Eigen/Geometry>
 #include <opencv2/core/cuda.hpp>
 
 using cv::cuda::GpuMat;
-
-
-struct Configuration
-{
-    Configuration(){}
-    Configuration(const int num_layers, const int kernel_size, const float sigma_color, const float sigma_spatial, const float max_depth) :
-        num_layers(num_layers), kernel_size(kernel_size), sigma_color(sigma_color), sigma_spatial(sigma_spatial), max_depth(max_depth) {}
-    // sub-sampling: Number of pyramid layers for each data frame
-    int num_layers {3};
-    // bilateral filtering
-    int kernel_size {5};        // values are for debugging need to be changed later
-    float sigma_color {1.f};
-    float sigma_spatial {1.f};
-    // Cut off depth values that are further away (set depth to 0)
-    float max_depth {1000.f};
-};
 
 
 struct CameraParameters
@@ -51,15 +37,15 @@ struct CameraParameters
 };
 
 
-struct PreprocessedData
+struct FrameData
 {
     GpuMat color_map;
     std::vector<GpuMat> depth_pyramid;
     std::vector<GpuMat> vertex_pyramid;
     std::vector<GpuMat> normal_pyramid;
+    Eigen::Matrix4f T_g_k;
 
-
-    PreprocessedData(const int& num_layers, CameraParameters &cam) :
+    FrameData(const int& num_layers, CameraParameters &cam) :
         depth_pyramid(num_layers), vertex_pyramid(num_layers), normal_pyramid(num_layers)
     {
         color_map = cv::cuda::createContinuous(cam.height, cam.width, CV_8UC3);
@@ -80,6 +66,8 @@ struct ModelData
 {
     std::vector<GpuMat> vertex_pyramid;
     std::vector<GpuMat> normal_pyramid;
+
+    ModelData() {}
 
     ModelData(const size_t num_levels, const CameraParameters cam) :
             vertex_pyramid(num_levels), normal_pyramid(num_levels)
@@ -127,7 +115,7 @@ struct TSDFData
         tsdf(cv::cuda::createContinuous(_volume_size.y * _volume_size.z, _volume_size.x, CV_16SC2)),
         volume_size(_volume_size), voxel_scale(_voxel_scale)
     {
-        tsdf.setTo(0);
+        tsdf.setTo(1);
     }
 };
 
@@ -178,39 +166,3 @@ struct CloudData
     }
 };
 
-
-struct SurfaceMesh
-{
-    cv::Mat triangles;
-    int num_vertices;
-    int num_triangles;
-};
-
-struct MeshData {
-GpuMat occupied_voxel_ids_buffer;
-GpuMat number_vertices_buffer;
-GpuMat vertex_offsets_buffer;
-GpuMat triangle_buffer;
-
-GpuMat occupied_voxel_ids;
-GpuMat number_vertices;
-GpuMat vertex_offsets;
-
-explicit MeshData(const int buffer_size):
-        occupied_voxel_ids_buffer{cv::cuda::createContinuous(1, buffer_size, CV_32SC1)},
-        number_vertices_buffer{cv::cuda::createContinuous(1, buffer_size, CV_32SC1)},
-        vertex_offsets_buffer{cv::cuda::createContinuous(1, buffer_size, CV_32SC1)},
-        triangle_buffer{cv::cuda::createContinuous(1, buffer_size * 3, CV_32FC3)},
-        occupied_voxel_ids{}, number_vertices{}, vertex_offsets{}
-{ }
-
-void create_view(const int length)
-{
-    occupied_voxel_ids = GpuMat(1, length, CV_32SC1, occupied_voxel_ids_buffer.ptr<int>(0),
-                                occupied_voxel_ids_buffer.step);
-    number_vertices = GpuMat(1, length, CV_32SC1, number_vertices_buffer.ptr<int>(0),
-                                number_vertices_buffer.step);
-    vertex_offsets = GpuMat(1, length, CV_32SC1, vertex_offsets_buffer.ptr<int>(0),
-                            vertex_offsets_buffer.step);
-}
-};

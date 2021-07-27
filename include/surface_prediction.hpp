@@ -24,29 +24,12 @@ void surface_prediction(
     ModelData &model_data
 )
 {
-    bool flag_predict_all = true;
-    if (flag_predict_all)
-    {
-        for (int level = 0; level < num_levels; ++level)
-        {
-            raycast_tsdf(
-                volume, cam.getCameraParameters(level), T_c_w, trancation_distance, 
-                model_data.vertex_pyramid[level], model_data.normal_pyramid[level]
-            );
-        }
-    }
-    else
+    for (int level = 0; level < num_levels; ++level)
     {
         raycast_tsdf(
-            volume, cam.getCameraParameters(0), T_c_w, trancation_distance,
-            model_data.vertex_pyramid[0], model_data.normal_pyramid[0]
+            volume, cam.getCameraParameters(level), T_c_w, trancation_distance, 
+            model_data.vertex_pyramid[level], model_data.normal_pyramid[level]
         );
-
-        for (int i = 0; i < num_levels - 1; i++)
-        {
-            cv::cuda::pyrDown(model_data.vertex_pyramid[i], model_data.vertex_pyramid[i+1]);
-            cv::cuda::pyrDown(model_data.normal_pyramid[i], model_data.normal_pyramid[i+1]);
-        }
     }
 }
 

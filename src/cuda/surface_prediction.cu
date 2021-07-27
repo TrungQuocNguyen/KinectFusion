@@ -72,8 +72,8 @@ __global__ void kernel_raycast_tsdf(
 
     const Vector3f_da offset(volume_size.x / 2.f, volume_size.y / 2.f, volume_size.z / 2.f);
 
-    const Vector3f_da pixel_position((x - cam.cx) / cam.fx, (y - cam.cy) / cam.fy, 1.f);
-    const Vector3f_da ray_direction = (rotation * pixel_position).normalized();
+    const Vector3f_da voxel_c((x - cam.cx) / cam.fx, (y - cam.cy) / cam.fy, 1.f);
+    const Vector3f_da ray_direction = (rotation * voxel_c).normalized();
 
     float ray_length = fmax(get_min_time(volume_range, translation + offset * voxel_scale, ray_direction), 0.f);
     if (ray_length >= get_max_time(volume_range, translation + offset * voxel_scale, ray_direction)) return;
@@ -200,6 +200,7 @@ __global__ void kernel_raycast_tsdf_using_depth(
         tsdf_volume.ptr(__float2int_rd(grid[2]) * volume_size.y + __float2int_rd(grid[1]))[__float2int_rd(grid[0])].x
     ) * INV_SHORT_MAX;
     
+    /*
     while (tsdf < 0)
     {
         ray_length *= 0.8f;
@@ -208,6 +209,7 @@ __global__ void kernel_raycast_tsdf_using_depth(
             tsdf_volume.ptr(__float2int_rd(grid[2]) * volume_size.y + __float2int_rd(grid[1]))[__float2int_rd(grid[0])].x
         ) * INV_SHORT_MAX;
     }
+    */
 
     const float max_search_length = ray_length + volume_range.x * sqrt(2.f);
     for (; ray_length < max_search_length; ray_length += truncation_distance * 0.5f)

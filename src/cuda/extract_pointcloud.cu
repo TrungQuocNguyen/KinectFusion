@@ -2,8 +2,7 @@
 #include "datatypes.hpp"
 
 
-__global__
-void extract_points_kernel(
+__global__ void kernel_extract_pointcloud(
     const PtrStepSz<short2> tsdf_volume, 
     const int3 volume_size, const float voxel_scale,
     PtrStepSz<float3> vertices, PtrStep<float3> normals,
@@ -15,11 +14,12 @@ void extract_points_kernel(
 
     if (x >= volume_size.x - 1 || y >= volume_size.y - 1) return;
 
-    for (int z = 0; z < volume_size.z - 1; ++z) {
+    for (int z = 0; z < volume_size.z - 1; ++z) 
+    {
         const short2 value = tsdf_volume.ptr(z * volume_size.y + y)[x];
 
         const float tsdf = static_cast<float>(value.x) * INV_SHORT_MAX;
-        if (tsdf == 0 || tsdf <= -0.99f || tsdf >= 0.99f) continue;
+        if (tsdf == 0 || tsdf < - 1.f || tsdf > 1.f) continue;
 
         short2 vx = tsdf_volume.ptr((z) * volume_size.y + y)[x + 1];
         short2 vy = tsdf_volume.ptr((z) * volume_size.y + y + 1)[x];
@@ -79,17 +79,15 @@ void extract_points_kernel(
     }
 }
 
-PointCloud extract_points(const TSDFData& volume, const int buffer_size)
+
+PointCloud extract_pointcloud(const TSDFData& volume, const int buffer_size)
 {
     CloudData cloud_data { buffer_size };
 
     dim3 threads(32, 32);
-    dim3 blocks(
-        (volume.volume_size.x + threads.x - 1) / threads.x,
-        (volume.volume_size.y + threads.y - 1) / threads.y
-    );
+    dim3 blocks(divUp(volume.volume_size.x, threads.x), divUp(volume.volume_size.y, threads.y));
 
-    extract_points_kernel<<<blocks, threads>>>(
+    kernel_extract_pointcloud<<<blocks, threads>>>(
         volume.tsdf,
         volume.volume_size, volume.voxel_scale,
         cloud_data.vertices, cloud_data.normals, cloud_data.point_num

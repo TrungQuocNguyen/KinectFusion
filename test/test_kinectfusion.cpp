@@ -12,7 +12,7 @@ int main()
     auto cam = dataset.getCameraParameters();
     cam.max_depth = Config::get<float>("max_depth");
     cam.min_depth = Config::get<float>("min_depth");
-    Eigen::Matrix4f current_pose = Eigen::Matrix4f::Identity();
+    Eigen::Matrix4f current_pose =  Eigen::Matrix4f::Identity();
 
     cv::viz::Viz3d my_window("Surface Prediction");
     my_window.setBackgroundColor(cv::viz::Color::black());
@@ -44,9 +44,11 @@ int main()
         make_int3(Config::get<int>("tsdf_size_x"), Config::get<int>("tsdf_size_y"), Config::get<int>("tsdf_size_z")), 
         Config::get<int>("tsdf_scale")
     );
-    PreprocessedData data(num_levels, cam);
+    FrameData data(num_levels, cam);
     ModelData model_data(num_levels, cam);
     double sum_time = 0.;
+    Eigen::Matrix4f gt_init_pose = dataset.getPose(0);
+    std::vector<Eigen::Matrix4f> estimated_poses;
     for (int index = 0; index < dataset.size(); ++index)
     {
         printf("index : %d\n", index);
@@ -76,6 +78,8 @@ int main()
                     current_pose
                 );
                 timer.print("Pose Estimation");
+
+                estimated_poses.push_back(current_pose);
                 if (!icp_success) continue;
             }
         }
@@ -93,19 +97,6 @@ int main()
         data.normal_pyramid[0].download(measured_normals);
         model_data.normal_pyramid[0].download(normals);
         model_data.vertex_pyramid[0].download(vertices);
-        /*
-        for (int level = 0; level < num_levels; ++level)
-        {
-            cv::Mat n, v;
-            model_data.normal_pyramid[level].download(n);
-            model_data.vertex_pyramid[level].download(v);
-            cv::imshow("n" + std::to_string(level), n);
-            cv::imshow("v" + std::to_string(level), v);
-        }
-        */
-        // cv::resize(measured_normals, measured_normals, cv::Size(), 0.5, 0,5);
-        // cv::resize(normals, normals, cv::Size(), 0.5, 0,5);
-        // cv::resize(img, img, cv::Size(), 0.5, 0,5);
         cv::imshow("measured normals", measured_normals);
         cv::imshow("predicted normals", normals);
         cv::imshow("img", img);
@@ -118,7 +109,7 @@ int main()
         {
             for (int x = 0; x < 4; ++x)
             {
-                T(y, x) = current_pose(y, x);
+                T(y, x) = current_pose.matrix()(y, x);
             }
         }
         cv::viz::WCloud point_cloud(vertices, img);
@@ -133,10 +124,22 @@ int main()
     std::string dataset_name = dataset_dir.substr(tmp + 1, dataset_dir.size() - tmp - 2);
 
     // save as point cloud
-    PointCloud pc = extract_points(tsdf_data, 3 * 1000000);
+    PointCloud pc = extract_pointcloud(tsdf_data, 3 * 1000000);
     export_ply(dataset_name + ".ply", pc);
 
-    // save as mesh
-    // SurfaceMesh sm = extract_mesh(tsdf_data, 3 * 1000000);
-    // export_ply(dataset_name + ".ply", sm);
+    // save poses
+    std::ofstream ofs(dataset_name + "_pose.txt");
+    for (int index = 0; index < estimated_poses.size(); ++index)
+    {
+        Eigen::Matrix4f pose = estimated_poses[index];
+        pose.block<3, 1>(0, 3) *= 0.001f;
+        pose = pose * gt_init_pose;
+
+        Eigen::Vector3f t = pose.block<3, 1>(0, 3);
+        auto q = Eigen::Quaternionf(pose.block<3, 3>(0, 0));
+        ofs << dataset.getTimestamp(index) << " " << 
+            t.x() << " " << t.y() << " " << t.z() << " " << 
+            q.x() << " " << q.y() << " " << q.z() << " " << q.w() << std::endl;
+    }
+    ofs.close();
 }

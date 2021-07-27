@@ -16,7 +16,7 @@ void surface_measurement(
     const cv::Mat& depth, const cv::Mat& img,
     const int& num_layers, const int& kernel_size, const float& sigma_color, const float& sigma_spatial,
     const CameraParameters& cam,
-    PreprocessedData& data
+    FrameData& data
 )
 {
     data.depth_pyramid[0].upload(depth);

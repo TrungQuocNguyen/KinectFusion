@@ -4,6 +4,14 @@ This repository is a re-implementation of KinectFusion paper, which is a part of
 KinectFusion paper: https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/ismar2011.pdf
 ![plot](figs/output_kf.png)
 
+## Dependencies
+
+* Eigen
+* CUDA
+* OpenCV
+  * WITH_CUDA: ON
+  * WITH_VTK: ON
+
 ## Download Datasets
 
 ```
@@ -15,4 +23,4 @@ You can add dataset links into ```data/rgbd_tum_datasets.txt```. (maybe you can 
 ## Set Parameters
 
 Make yaml file to set parameters.
-You can copy ```data/template.yaml```.
+Copy ```data/template.yaml```.

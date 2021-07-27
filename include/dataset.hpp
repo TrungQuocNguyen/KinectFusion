@@ -34,6 +34,12 @@ public:
 		return gt_poses_[index];		
 	}
 
+	inline std::string getTimestamp(const int index)
+	{
+		assert(0 <= index && index < size_);
+		return time_stamps_[index];
+	}
+
 protected:
 	CameraParameters cam_;
 	float distortions_[5] = { 0 };
@@ -83,7 +89,11 @@ public:
 			{
 				std::string s;
 				ss >> s;
-				if (i == 1)
+				if (i == 0)
+				{
+					time_stamps_.push_back(s);
+				}
+				else if (i == 1)
 				{
 					imgs_filenames_.push_back(dataset_dir + s);
 				}
@@ -224,3 +234,4 @@ private:
 		}
 	}
 };
+

@@ -5,8 +5,9 @@
 #include <opencv2/core.hpp>
 
 
-struct Timer
+class Timer
 {
+public:
     inline Timer(std::string name) : name_(name)
     {
         start();
@@ -84,5 +85,6 @@ public:
         return T(Config::config_->file_[key]);
     }
 };
+
 
 std::shared_ptr<Config> Config::config_ = nullptr;

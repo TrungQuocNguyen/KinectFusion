@@ -10,7 +10,6 @@
 #include "pose_estimation.hpp"
 
 
-
 void surface_reconstruction(
     const cv::cuda::GpuMat& depth, 
     const CameraParameters& cam,
@@ -20,7 +19,7 @@ void surface_reconstruction(
 );
 
 
-PointCloud extract_points(const TSDFData& volume, const int buffer_size);
+PointCloud extract_pointcloud(const TSDFData& volume, const int buffer_size);
 
 
 void export_ply(const std::string& filename, const PointCloud& point_cloud)
@@ -48,38 +47,123 @@ void export_ply(const std::string& filename, const PointCloud& point_cloud)
 }
 
 
-SurfaceMesh marching_cubes(const TSDFData& volume, const int buffer_size);
-
-
-SurfaceMesh extract_mesh(const TSDFData& volume, const int buffer_size)
+class KinectFusion
 {
-    SurfaceMesh surface_mesh = marching_cubes(volume, buffer_size);
-    return surface_mesh;
-}
+    KinectFusion(CameraParameters cam) : cam_(cam) {}
 
+    void read_config()
+    {
+        num_levels_ = Config::get<int>("num_levels");
+        
+        // birateral filter
+        kernel_size_ = Config::get<int>("bf_kernel_size");
+        sigma_color_  = Config::get<float>("bf_sigma_color");
+        sigma_spatial_ = Config::get<float>("bf_sigma_spatial");
 
-void export_ply(const std::string& filename, const SurfaceMesh& surface_mesh)
-{
-    std::ofstream file_out { filename };
-    if (!file_out.is_open())
-        return;
+        // icp
+        distance_threshold_ = Config::get<float>("icp_distance_threshold");
+        angle_threshold_ = Config::get<float>("icp_angle_threshold");
+        for (int i = 0; i < num_levels_; ++i)
+        {
+            icp_iterations_.push_back(Config::get<int>("icp_iteration_" + std::to_string(i)));
+        }
+        flag_use_gt_pose_ = Config::get<int>("flag_use_gt_pose") == 1;
 
-    file_out << "ply" << std::endl;
-    file_out << "format ascii 1.0" << std::endl;
-    file_out << "element vertex " << surface_mesh.num_vertices << std::endl;
-    file_out << "property float x" << std::endl;
-    file_out << "property float y" << std::endl;
-    file_out << "property float z" << std::endl;
-    file_out << "element face " << surface_mesh.num_triangles << std::endl;
-    file_out << "property list uchar int vertex_index" << std::endl;
-    file_out << "end_header" << std::endl;
+        // tsdf
+        truncation_distance_ = Config::get<float>("truncation_distance");
+        tsdf_data_ = TSDFData(
+            make_int3(Config::get<int>("tsdf_size_x"), Config::get<int>("tsdf_size_y"), Config::get<int>("tsdf_size_z")), 
+            Config::get<int>("tsdf_scale")
+        );
 
-    for (int v_idx = 0; v_idx < surface_mesh.num_vertices; ++v_idx) {
-        float3 vertex = surface_mesh.triangles.ptr<float3>(0)[v_idx];
-        file_out << vertex.x << " " << vertex.y << " " << vertex.z  << std::endl;
+        model_data_ = ModelData(num_levels_, cam_);
     }
 
-    for (int t_idx = 0; t_idx < surface_mesh.num_vertices; t_idx += 3) {
-        file_out << 3 << " " << t_idx + 1 << " " << t_idx << " " << t_idx + 2 << std::endl;
+    void set_pose(Eigen::Matrix4f &pose, std::string time_stamp)
+    {
+        T_g_k_ = pose;
     }
-}
+
+    bool add_frame(cv::Mat &img, cv::Mat &depth)
+    {
+        static int frame_factory_id = 0;
+        static float sum_time = 0.;
+        Timer timer("Frame " + std::to_string(frame_factory_id));
+        
+        FrameData frame(num_levels_, cam_);
+
+        surface_measurement(depth, img, num_levels_, kernel_size_, sigma_color_, sigma_spatial_, cam_, frame);
+        timer.print("Surface Measurement");
+
+        if (frame_factory_id != 0)
+        {
+            if (!flag_use_gt_pose_)
+            {
+                bool icp_success = pose_estimation(
+                    model_data_, frame, cam_, num_levels_, distance_threshold_, angle_threshold_,
+                    icp_iterations_, T_g_k_
+                );
+                timer.print("Pose Estimation");
+
+                estimated_poses_.push_back(T_g_k_);
+                if (!icp_success) return false;
+            }
+        }
+
+        surface_reconstruction(frame.depth_pyramid[0], cam_, T_g_k_, truncation_distance_, tsdf_data_);
+        timer.print("Surface Reconstruction");
+
+        surface_prediction(tsdf_data_, cam_, T_g_k_, truncation_distance_, num_levels_, model_data_);
+        timer.print("Surface Prediction");
+
+        sum_time += timer.print();
+        printf("[ FPS ] : %f\n", (frame_factory_id + 1) * 1000.f / sum_time);
+
+        frame_factory_id++;
+        return true;
+    }
+
+    void save_poses(std::string file_name, Eigen::Matrix4f init_pose = Eigen::Matrix4f::Identity())
+    {
+        std::ofstream ofs(file_name + "_pose.txt");
+        for (int index = 0; index < estimated_poses_.size(); ++index)
+        {
+            Eigen::Matrix4f pose = estimated_poses_[index];
+            pose.block<3, 1>(0, 3) *= 0.001f;  // save in meter
+            pose = pose * init_pose;
+
+            Eigen::Vector3f t = pose.block<3, 1>(0, 3);
+            auto q = Eigen::Quaternionf(pose.block<3, 3>(0, 0));
+            ofs << time_stamps_[index] << " " << 
+                t.x() << " " << t.y() << " " << t.z() << " " << 
+                q.x() << " " << q.y() << " " << q.z() << " " << q.w() << std::endl;
+        }
+        ofs.close();
+    }
+
+private:
+    CameraParameters cam_;
+    int num_levels_ = 3;
+    
+    // bilateral filter
+    int kernel_size_ = 7;
+    float sigma_color_ = 40.f;
+    float sigma_spatial_ = 4.5f;
+    
+    // icp
+    bool flag_use_gt_pose_ = false;
+    float distance_threshold_ = 40.f;  // mm
+    float angle_threshold_ = 30.f;  // degree
+    std::vector<int> icp_iterations_;
+
+    // tsdf
+    float truncation_distance_;  // mm
+    TSDFData tsdf_data_;
+
+    std::vector<FrameData> frames_data_;  
+    ModelData model_data_;
+
+    Eigen::Matrix4f T_g_k_;  // current pose
+    std::vector<Eigen::Matrix4f> estimated_poses_;
+    std::vector<std::string> time_stamps_;  // to save tum trajectory
+};
