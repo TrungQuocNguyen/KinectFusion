@@ -62,7 +62,7 @@ public:
         }
     }
 
-    static bool setParameterFile(const std::string &filename)
+    static bool read(const std::string &filename)
     {
         if (config_ == nullptr)
         {

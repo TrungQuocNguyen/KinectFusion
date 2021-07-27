@@ -18,9 +18,19 @@ KinectFusion paper: https://www.microsoft.com/en-us/research/wp-content/uploads/
 sh data/download_tumrgbd.sh
 ```
 
-You can add dataset links into ```data/rgbd_tum_datasets.txt```. (maybe you can refer the list of ```data/rgbd_tum_datsets_2011.txt```)
+You can add dataset links into ```data/rgbd_tum_datasets.txt```. 
 
 ## Set Parameters
 
 Make yaml file to set parameters.
-Copy ```data/template.yaml```.
+Copy ```data/template.yaml``` if you want to make new one.
+
+## Run on TUM-RGBD
+
+run ```run_kinectfusion_tumrgbd.cpp```
+
+You can change the parameters of ```data/tumrgbd.yaml``.
+
+It generates pointcloud ply file and pose text file.
+You can evaluate poses. 
+

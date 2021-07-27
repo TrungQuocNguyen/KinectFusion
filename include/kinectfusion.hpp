@@ -10,19 +10,17 @@
 #include "pose_estimation.hpp"
 
 
-void surface_reconstruction(
+void surfaceReconstruction(
     const cv::cuda::GpuMat& depth, 
-    const CameraParameters& cam,
-    const Eigen::Matrix4f& T_c_w,
-    const float& truncation_distance,
-    TSDFData& volume
+    const CameraParameters& cam, const Eigen::Matrix4f& T_c_w,
+    const float& truncation_distance, TSDFData& volume
 );
 
 
-PointCloud extract_pointcloud(const TSDFData& volume, const int buffer_size);
+PointCloud extractPointcloud(const TSDFData& volume, const int buffer_size);
 
 
-void export_ply(const std::string& filename, const PointCloud& point_cloud)
+void exportPly(const std::string& filename, const PointCloud& point_cloud)
 {
     std::ofstream file_out { filename };
     if (!file_out.is_open()) return;
@@ -49,9 +47,10 @@ void export_ply(const std::string& filename, const PointCloud& point_cloud)
 
 class KinectFusion
 {
+public:
     KinectFusion(CameraParameters cam) : cam_(cam) {}
 
-    void read_config()
+    void readConfig()
     {
         num_levels_ = Config::get<int>("num_levels");
         
@@ -79,27 +78,33 @@ class KinectFusion
         model_data_ = ModelData(num_levels_, cam_);
     }
 
-    void set_pose(Eigen::Matrix4f &pose, std::string time_stamp)
+    void setPose(Eigen::Matrix4f &pose)
     {
         T_g_k_ = pose;
     }
 
-    bool add_frame(cv::Mat &img, cv::Mat &depth)
+    bool addFrame(cv::Mat &img, cv::Mat &depth, std::string time_stamp, bool flag_show_img = false)
     {
         static int frame_factory_id = 0;
         static float sum_time = 0.;
         Timer timer("Frame " + std::to_string(frame_factory_id));
         
         FrameData frame(num_levels_, cam_);
+        time_stamps_.push_back(time_stamp);
 
-        surface_measurement(depth, img, num_levels_, kernel_size_, sigma_color_, sigma_spatial_, cam_, frame);
+        surfaceMeasurement(depth, img, num_levels_, kernel_size_, sigma_color_, sigma_spatial_, cam_, frame);
         timer.print("Surface Measurement");
 
-        if (frame_factory_id != 0)
+        if (frame_factory_id == 0)
+        {
+            T_g_k_ = Eigen::Matrix4f::Identity();
+            estimated_poses_.push_back(T_g_k_);
+        }
+        else
         {
             if (!flag_use_gt_pose_)
             {
-                bool icp_success = pose_estimation(
+                bool icp_success = poseEstimation(
                     model_data_, frame, cam_, num_levels_, distance_threshold_, angle_threshold_,
                     icp_iterations_, T_g_k_
                 );
@@ -110,22 +115,34 @@ class KinectFusion
             }
         }
 
-        surface_reconstruction(frame.depth_pyramid[0], cam_, T_g_k_, truncation_distance_, tsdf_data_);
+        surfaceReconstruction(frame.depth_pyramid[0], cam_, T_g_k_, truncation_distance_, tsdf_data_);
         timer.print("Surface Reconstruction");
 
-        surface_prediction(tsdf_data_, cam_, T_g_k_, truncation_distance_, num_levels_, model_data_);
+        surfacePrediction(tsdf_data_, cam_, T_g_k_, truncation_distance_, num_levels_, model_data_);
         timer.print("Surface Prediction");
 
         sum_time += timer.print();
         printf("[ FPS ] : %f\n", (frame_factory_id + 1) * 1000.f / sum_time);
+        
+        if (flag_show_img)
+        {
+            cv::Mat measured_normals, measured_depth;
+            frame.normal_pyramid[0].download(measured_normals);
+            frame.depth_pyramid[0].download(measured_depth);
+            cv::imshow("raw img", img);
+            cv::imshow("raw depth", depth / 1000.f);
+            cv::imshow("measured normals", measured_normals);
+            cv::imshow("measured depth", measured_depth / 1000.f);
+            cv::waitKey(1);
+        }        
 
         frame_factory_id++;
         return true;
     }
 
-    void save_poses(std::string file_name, Eigen::Matrix4f init_pose = Eigen::Matrix4f::Identity())
+    void savePoses(std::string filename, Eigen::Matrix4f init_pose = Eigen::Matrix4f::Identity())
     {
-        std::ofstream ofs(file_name + "_pose.txt");
+        std::ofstream ofs(filename);
         for (int index = 0; index < estimated_poses_.size(); ++index)
         {
             Eigen::Matrix4f pose = estimated_poses_[index];
@@ -141,6 +158,42 @@ class KinectFusion
         ofs.close();
     }
 
+    void savePointcloud(const std::string filename, const int buffer_size)
+    {
+        PointCloud pc = extractPointcloud(tsdf_data_, buffer_size);
+        exportPly(filename, pc);
+    }
+
+    void visualize3d(cv::viz::Viz3d &window, cv::Mat &img, bool show_img = false)
+    {
+        cv::Mat normals, vertices;
+        model_data_.normal_pyramid[0].download(normals);
+        model_data_.vertex_pyramid[0].download(vertices);
+
+        if (show_img)
+        {
+            cv::imshow("predicted normal", normals);
+            cv::waitKey(1);
+        }
+
+        cv::Matx44f T = cv::Matx44f::eye();
+        for (int y = 0; y < 4; ++y)
+        {
+            for (int x = 0; x < 4; ++x)
+            {
+                T(y, x) = T_g_k_.matrix()(y, x);
+            }
+        }
+        cv::viz::WCloud point_cloud(vertices, img);
+        window.showWidget("points", point_cloud);
+
+        cv::viz::WCloudNormals normal_cloud(vertices, normals, 64, 0.10, cv::viz::Color::red());
+        window.showWidget("normals", normal_cloud);
+
+        window.setWidgetPose("cam", cv::Affine3f(T));
+        window.spinOnce(1);
+    }
+    
 private:
     CameraParameters cam_;
     int num_levels_ = 3;
@@ -158,6 +211,7 @@ private:
 
     // tsdf
     float truncation_distance_;  // mm
+    
     TSDFData tsdf_data_;
 
     std::vector<FrameData> frames_data_;  

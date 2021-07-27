@@ -1,0 +1,31 @@
+%YAML:1.0
+
+# Dataset
+tum_dataset_dir: "../data/TUMRGBD/rgbd_dataset_freiburg1_xyz/"
+tumrgbd: 1  # freiburg 1, 2, 3
+
+# Parameters
+num_levels: 3
+flag_use_gt_pose: 0
+
+max_depth: 6000.
+min_depth: 150.
+
+# ----- bilateral filter
+bf_kernel_size: 11
+bf_sigma_color: 40.
+bf_sigma_spatial: 4.5
+
+# ----- icp
+icp_distance_threshold: 100.
+icp_angle_threshold: 30.
+icp_iteration_0: 10
+icp_iteration_1: 5
+icp_iteration_2: 4
+
+# ---- tsdf
+truncation_distance: 12.  # mm
+tsdf_size_x: 512
+tsdf_size_y: 512
+tsdf_size_z: 512
+tsdf_scale: 8.  # mm
