@@ -80,7 +80,7 @@ __global__ void kernel_extract_pointcloud(
 }
 
 
-PointCloud extractPointcloud(const TSDFData& volume, const int buffer_size)
+PointCloud extractPointCloud(const TSDFData& volume, const int buffer_size)
 {
     CloudData cloud_data { buffer_size };
 

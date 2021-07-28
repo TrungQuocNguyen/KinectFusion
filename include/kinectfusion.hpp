@@ -17,7 +17,7 @@ void surfaceReconstruction(
 );
 
 
-PointCloud extractPointcloud(const TSDFData& volume, const int buffer_size);
+PointCloud extractPointCloud(const TSDFData& volume, const int buffer_size);
 
 
 void exportPly(const std::string& filename, const PointCloud& point_cloud)
@@ -160,7 +160,7 @@ public:
 
     void savePointcloud(const std::string filename, const int buffer_size)
     {
-        PointCloud pc = extractPointcloud(tsdf_data_, buffer_size);
+        PointCloud pc = extractPointCloud(tsdf_data_, buffer_size);
         exportPly(filename, pc);
     }
 

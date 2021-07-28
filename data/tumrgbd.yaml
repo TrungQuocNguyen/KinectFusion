@@ -1,7 +1,7 @@
 %YAML:1.0
 
 # Dataset
-tum_dataset_dir: "../data/TUMRGBD/rgbd_dataset_freiburg1_xyz/"
+dataset_dir: "../data/TUMRGBD/rgbd_dataset_freiburg1_xyz/"
 tumrgbd: 1  # freiburg 1, 2, 3
 
 # Parameters

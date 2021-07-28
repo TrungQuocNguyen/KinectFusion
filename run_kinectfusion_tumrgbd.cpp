@@ -7,7 +7,7 @@ int main()
 {
     if (Config::read("../data/tumrgbd.yaml") == false) return -1;
 
-    std::string dataset_dir = Config::get<std::string>("tum_dataset_dir");
+    std::string dataset_dir = Config::get<std::string>("dataset_dir");
     Dataset dataset = TUMRGBDDataset(dataset_dir, static_cast<TUMRGBDDataset::TUMRGBD>(Config::get<int>("tumrgbd")));
 
     auto cam = dataset.getCameraParameters();

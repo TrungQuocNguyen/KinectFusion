@@ -1,13 +1,14 @@
-#include <kinectfusion.hpp>
-#include <dataset.hpp>
 #include <opencv2/viz/viz3d.hpp>
+#include "dataset.hpp"
+#include "datatypes.hpp"
+#include "surface_measurement.hpp"
 
 
 int main()
 {
-    if (Config::setParameterFile("../data/tumrgbd.yaml") == false) return -1;
+    if (Config::read("../data/tumrgbd.yaml") == false) return -1;
 
-    std::string tum_dataset_dir = Config::get<std::string>("tum_dataset_dir");
+    std::string tum_dataset_dir = Config::get<std::string>("dataset_dir");
     Dataset dataset = TUMRGBDDataset(tum_dataset_dir, static_cast<TUMRGBDDataset::TUMRGBD>(Config::get<int>("tumrgbd")));
 
     auto cam = dataset.getCameraParameters();
@@ -33,7 +34,7 @@ int main()
     float truncation_distance {Config::get<float>("truncation_distance")};
     TSDFData tsdf_data(make_int3(Config::get<int>("tsdf_size_x"), Config::get<int>("tsdf_size_y"), Config::get<int>("tsdf_size_z")), Config::get<int>("tsdf_scale"));
     ModelData model_data(num_levels, cam);
-    PreprocessedData data(num_levels, cam);
+    FrameData data(num_levels, cam);
     double sum_t = 0.;
     for (int index = 0; index < dataset.size(); ++index)
     {
@@ -51,29 +52,18 @@ int main()
             current_pose = current_pose * rel_pose;
         }
 
-        surface_measurement(depth, img, num_levels, kernel_size, sigma_color, sigma_spatial, cam, data);
+        surfaceMeasurement(depth, img, num_levels, kernel_size, sigma_color, sigma_spatial, cam, data);
         timer.print("Surface Measurement");
         
-        surface_reconstruction(data.depth_pyramid[0], cam, current_pose, truncation_distance, tsdf_data);
+        surfaceReconstruction(data.depth_pyramid[0], cam, current_pose, truncation_distance, tsdf_data);
         timer.print("Surface Reconstruction");
 
-        bool flag_use_depth = !true;
-        if (flag_use_depth)
-        {
-            surface_prediction_using_depth(
-                tsdf_data, data.depth_pyramid, cam, current_pose,
-                truncation_distance, num_levels,
-                model_data
-            );
-        }
-        else
-        {
-            surface_prediction(
-                tsdf_data, cam, current_pose,
-                truncation_distance, num_levels,
-                model_data
-            );
-        }
+
+        surfacePrediction(
+            tsdf_data, cam, current_pose,
+            truncation_distance, num_levels,
+            model_data
+        );
         
         timer.print("Surface Prediction");
 
@@ -105,7 +95,6 @@ int main()
         my_window.showWidget("normals", normal_cloud);
 
         my_window.setWidgetPose("cam", cv::Affine3f(T));
-
-        my_window.spinOnce(10);
+        my_window.spinOnce(1);
     }
 }

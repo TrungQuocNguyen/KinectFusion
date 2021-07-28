@@ -10,9 +10,9 @@ using namespace std;
 int main()
 {
 
-    if (Config::setParameterFile("../data/tumrgbd.yaml") == false) return -1;
+    if (Config::read("../data/tumrgbd.yaml") == false) return -1;
 
-    std::string dataset_dir = Config::get<std::string>("tum_dataset_dir");
+    std::string dataset_dir = Config::get<std::string>("dataset_dir");
     Dataset dataset = TUMRGBDDataset(dataset_dir, static_cast<TUMRGBDDataset::TUMRGBD>(Config::get<int>("tumrgbd")));
 
     auto cam = dataset.getCameraParameters();
@@ -25,7 +25,7 @@ int main()
     const float sigma_color {Config::get<float>("bf_sigma_color")};
     const float sigma_spatial {Config::get<float>("bf_sigma_spatial")};
 
-    PreprocessedData data(num_levels, cam);
+    FrameData data(num_levels, cam);
     
     // Create a window
     cv::viz::Viz3d myWindow("Viz Demo");
@@ -43,7 +43,7 @@ int main()
 
         Timer timer("Frame " + std::to_string(index));
 
-        surface_measurement(depth, img, num_levels, kernel_size, sigma_color, sigma_spatial, cam, data);
+        surfaceMeasurement(depth, img, num_levels, kernel_size, sigma_color, sigma_spatial, cam, data);
         timer.print("Surface Measurement");
 
         cv::Mat vertex, normal, flt_depth;
@@ -57,38 +57,7 @@ int main()
         cv::imshow("normal", normal);
         cv::imshow("measured depth", depth);
         cv::imshow("filtered depth", flt_depth);
-        int key = cv::waitKey(0);
-        if (key == ' ') break;
+        int key = cv::waitKey(1);
+        if (key == 'q') break;
     }
-    /*
-    cv::Mat img, depth;
-
-    size_t index = 10;   // index for choosing frame in dataset
-    dataset.getData(index, img, depth);
-    
-    // declare data pyramids
-    PreprocessedData data(config.num_layers, cam);
-
-    // Compute surface measurement
-    surface_measurement(depth, img, config.num_layers, config.kernel_size, config.sigma_color, config.sigma_spatial, cam, data);
-    
-    cv::Mat vertex, normal;
-    data.vertex_pyramid[0].download(vertex);
-    data.normal_pyramid[0].download(normal);
-    data.depth_pyramid[0].download(depth);
-
-    // safe images for comparison
-    depth.convertTo(depth, CV_16U, 5000.f);
-    cv::imwrite("rgb.png", img);
-    cv::imwrite("depth.png", depth);
-    cv::imwrite("vertex.png", vertex);
-
-    // Show point cloud
-    //cv::viz::WCloud pointCloud(normal, cv::viz::Color::green());
-    cv::viz::WCloud pointCloud(vertex, cv::viz::Color::green());
-    myWindow.showWidget("vertex", pointCloud);
-
-    // Start event loop (run until user terminates it by pressing e, E, q, Q)
-    myWindow.spin();
-    */
 }
