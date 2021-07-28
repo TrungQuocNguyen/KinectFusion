@@ -27,10 +27,20 @@ Copy ```data/template.yaml``` if you want to make new one.
 
 ## Run on TUM-RGBD
 
-run ```run_kinectfusion_tumrgbd.cpp```
+```cp data/template.yaml data/tumrgbd.yaml```
+Run ```run_kinectfusion_tumrgbd.cpp```.
+
+It generates pointcloud ply file and pose text file.
+
+You can evaluate pose by [evo](https://github.com/MichaelGrupp/evo).
+Run ```evo_rpe tum ../data/TUMRGBD/rgbd_dataset_freiburg1_xyz/groundtruth.txt rgbd_dataset_freiburg1_xyz_pose.txt -p --plot_mode=xyz'''.
 
 You can change the parameters of ```data/tumrgbd.yaml``.
 
-It generates pointcloud ply file and pose text file.
-You can evaluate poses. 
+## Environment
 
+* The environment we tested
+  * Ubuntu 20.04
+  * GTX 980ti 6GB
+  * CUDA 11.2
+  * OpenCV 4.5.2
