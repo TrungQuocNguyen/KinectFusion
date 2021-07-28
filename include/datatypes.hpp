@@ -112,12 +112,13 @@ struct TSDFData
 
     int3 volume_size;
     float voxel_scale;
+    float truncation_distance;
 
     TSDFData() {}
     
-    TSDFData(const int3 _volume_size, const float _voxel_scale) :
+    TSDFData(const int3 _volume_size, const float _voxel_scale, const float _truncation_distance) :
         tsdf(cv::cuda::createContinuous(_volume_size.y * _volume_size.z, _volume_size.x, CV_16SC2)),
-        volume_size(_volume_size), voxel_scale(_voxel_scale)
+        volume_size(_volume_size), voxel_scale(_voxel_scale), truncation_distance(_truncation_distance)
     {
         tsdf.setTo(1);
     }

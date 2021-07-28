@@ -36,8 +36,8 @@ int main()
         dataset.getData(index, img, depth);
         depth *= 1000.f;  // m -> mm
         
-        FrameData data(num_levels);
-        surfaceMeasurement(data, depth, img, num_levels, kernel_size, sigma_color, sigma_spatial, cam, 4000.f);
+        FrameData frame(num_levels, cam);
+        surfaceMeasurement(frame, depth, img, num_levels, kernel_size, sigma_color, sigma_spatial, cam, 4000.f);
 
         bool icp_success {true};
         if (index > 0)

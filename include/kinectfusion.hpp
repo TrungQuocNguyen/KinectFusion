@@ -13,7 +13,7 @@
 void surfaceReconstruction(
     const cv::cuda::GpuMat& depth, 
     const CameraParameters& cam, const Eigen::Matrix4f& T_c_w,
-    const float& truncation_distance, TSDFData& volume
+    TSDFData& volume
 );
 
 
@@ -69,10 +69,9 @@ public:
         flag_use_gt_pose_ = Config::get<int>("flag_use_gt_pose") == 1;
 
         // tsdf
-        truncation_distance_ = Config::get<float>("truncation_distance");
         tsdf_data_ = TSDFData(
             make_int3(Config::get<int>("tsdf_size_x"), Config::get<int>("tsdf_size_y"), Config::get<int>("tsdf_size_z")), 
-            Config::get<int>("tsdf_scale")
+            Config::get<int>("tsdf_scale"), Config::get<float>("truncation_distance")
         );
 
         model_data_ = ModelData(num_levels_, cam_);
@@ -116,10 +115,10 @@ public:
             }
         }
 
-        surfaceReconstruction(current_frame_.depth_pyramid[0], cam_, T_g_k_, truncation_distance_, tsdf_data_);
+        surfaceReconstruction(current_frame_.depth_pyramid[0], cam_, T_g_k_, tsdf_data_);
         timer.print("Surface Reconstruction");
 
-        surfacePrediction(tsdf_data_, cam_, T_g_k_, truncation_distance_, num_levels_, model_data_);
+        surfacePrediction(tsdf_data_, cam_, T_g_k_, num_levels_, model_data_);
         timer.print("Surface Prediction");
 
         sum_time += timer.print();
@@ -214,8 +213,6 @@ private:
     std::vector<int> icp_iterations_;
 
     // tsdf
-    float truncation_distance_;  // mm
-    
     TSDFData tsdf_data_;
 
     std::vector<FrameData> frames_data_;  

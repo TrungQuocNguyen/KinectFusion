@@ -4,8 +4,6 @@
 #include "surface_measurement.hpp"
 #include "datatypes.hpp"
 
-using namespace cv;
-using namespace std;
 
 int main()
 {
@@ -25,7 +23,7 @@ int main()
     const float sigma_color {Config::get<float>("bf_sigma_color")};
     const float sigma_spatial {Config::get<float>("bf_sigma_spatial")};
 
-    FrameData data(num_levels, cam);
+    FrameData frame(num_levels, cam);
     
     // Create a window
     cv::viz::Viz3d myWindow("Viz Demo");
@@ -43,13 +41,13 @@ int main()
 
         Timer timer("Frame " + std::to_string(index));
 
-        surfaceMeasurement(depth, img, num_levels, kernel_size, sigma_color, sigma_spatial, cam, data);
+        surfaceMeasurement(depth, img, num_levels, kernel_size, sigma_color, sigma_spatial, cam, frame);
         timer.print("Surface Measurement");
 
         cv::Mat vertex, normal, flt_depth;
-        data.vertex_pyramid[0].download(vertex);
-        data.normal_pyramid[0].download(normal);
-        data.depth_pyramid[0].download(flt_depth);
+        frame.vertex_pyramid[0].download(vertex);
+        frame.normal_pyramid[0].download(normal);
+        frame.depth_pyramid[0].download(flt_depth);
 
         depth.convertTo(depth, CV_16U, 5.f);
         flt_depth.convertTo(flt_depth, CV_16U, 5.f);

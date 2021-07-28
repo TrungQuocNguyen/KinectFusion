@@ -7,7 +7,7 @@
 void surfaceReconstruction(
     const cv::cuda::GpuMat& depth, 
     const CameraParameters& cam, const Eigen::Matrix4f& T_c_w,
-    const float& truncation_distance, TSDFData& volume
+    TSDFData& volume
 );
 
 PointCloud extractPointCloud(const TSDFData& volume, const int buffer_size);
@@ -63,7 +63,10 @@ int main()
     float sigma_color {Config::get<float>("bf_sigma_color")};
     float sigma_spatial {Config::get<float>("bf_sigma_spatial")};
     float truncation_distance {Config::get<float>("truncation_distance")};
-    TSDFData tsdf_data(make_int3(Config::get<int>("tsdf_size_x"), Config::get<int>("tsdf_size_y"), Config::get<int>("tsdf_size_z")), Config::get<int>("tsdf_scale"));
+    TSDFData tsdf(
+        make_int3(Config::get<int>("tsdf_size_x"), Config::get<int>("tsdf_size_y"), Config::get<int>("tsdf_size_z")),
+        Config::get<int>("tsdf_scale"), Config::get<float>("truncation_distance")
+    );
     FrameData frame(num_levels, cam);
     Eigen::Matrix4f current_pose = Eigen::Matrix4f::Identity();
     PointCloud pc;
@@ -86,7 +89,7 @@ int main()
         surfaceMeasurement(depth, img, num_levels, kernel_size, sigma_color, sigma_spatial, cam, frame);
         timer.print("Surface Measurement");
 
-        surfaceReconstruction(frame.depth_pyramid[0], cam, current_pose, truncation_distance, tsdf_data);
+        surfaceReconstruction(frame.depth_pyramid[0], cam, current_pose, tsdf);
         timer.print("Surface Reconstruction");
 
         cv::Matx44f T = cv::Matx44f::eye();
@@ -98,7 +101,7 @@ int main()
             }
         }
 
-        pc = extractPointCloud(tsdf_data, 3 * 1000000);
+        pc = extractPointCloud(tsdf, 3 * 1000000);
 
         cv::viz::WCloud point_cloud(pc.vertices);
         my_window.showWidget("points", point_cloud);
@@ -114,7 +117,7 @@ int main()
         else if (k == ' ') cv::waitKey(0);  // press space to stop
     }
 
-    pc = extractPointCloud(tsdf_data, 3 * 1000000);
+    pc = extractPointCloud(tsdf, 3 * 1000000);
     int tmp = dataset_dir.rfind("/", dataset_dir.size() - 2);
     std::string dataset_name = dataset_dir.substr(tmp + 1, dataset_dir.size() - tmp - 2);
     exportPly(dataset_name + ".ply", pc);

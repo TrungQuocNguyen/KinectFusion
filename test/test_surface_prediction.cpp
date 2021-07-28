@@ -8,7 +8,7 @@
 void surfaceReconstruction(
     const cv::cuda::GpuMat& depth, 
     const CameraParameters& cam, const Eigen::Matrix4f& T_c_w,
-    const float& truncation_distance, TSDFData& volume
+    TSDFData& volume
 );
 
 
@@ -39,10 +39,12 @@ int main()
     int kernel_size {Config::get<int>("bf_kernel_size")};
     float sigma_color {Config::get<float>("bf_sigma_color")};
     float sigma_spatial {Config::get<float>("bf_sigma_spatial")};
-    float truncation_distance {Config::get<float>("truncation_distance")};
-    TSDFData tsdf_data(make_int3(Config::get<int>("tsdf_size_x"), Config::get<int>("tsdf_size_y"), Config::get<int>("tsdf_size_z")), Config::get<int>("tsdf_scale"));
-    ModelData model_data(num_levels, cam);
-    FrameData data(num_levels, cam);
+    TSDFData tsdf(
+        make_int3(Config::get<int>("tsdf_size_x"), Config::get<int>("tsdf_size_y"), Config::get<int>("tsdf_size_z")), 
+        Config::get<int>("tsdf_scale"), Config::get<float>("truncation_distance")
+    );
+    ModelData model(num_levels, cam);
+    FrameData frame(num_levels, cam);
     double sum_t = 0.;
     for (int index = 0; index < dataset.size(); ++index)
     {
@@ -60,28 +62,22 @@ int main()
             current_pose = current_pose * rel_pose;
         }
 
-        surfaceMeasurement(depth, img, num_levels, kernel_size, sigma_color, sigma_spatial, cam, data);
+        surfaceMeasurement(depth, img, num_levels, kernel_size, sigma_color, sigma_spatial, cam, frame);
         timer.print("Surface Measurement");
         
-        surfaceReconstruction(data.depth_pyramid[0], cam, current_pose, truncation_distance, tsdf_data);
+        surfaceReconstruction(frame.depth_pyramid[0], cam, current_pose, tsdf);
         timer.print("Surface Reconstruction");
 
-
-        surfacePrediction(
-            tsdf_data, cam, current_pose,
-            truncation_distance, num_levels,
-            model_data
-        );
-        
+        surfacePrediction(tsdf, cam, current_pose, num_levels, model);        
         timer.print("Surface Prediction");
 
         sum_t += timer.print();
         std::cout << "[ FPS ] : " << (index + 1) * 1000.f / sum_t << std::endl;
 
         cv::Mat m_normals, m_vertices, d_normals;
-        data.normal_pyramid[0].download(d_normals);
-        model_data.normal_pyramid[0].download(m_normals);
-        model_data.vertex_pyramid[0].download(m_vertices);
+        frame.normal_pyramid[0].download(d_normals);
+        model.normal_pyramid[0].download(m_normals);
+        model.vertex_pyramid[0].download(m_vertices);
         cv::imshow("data normal", d_normals);
         cv::imshow("model normal", m_normals);
         cv::imshow("img", img);

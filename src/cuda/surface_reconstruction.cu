@@ -69,7 +69,6 @@ __global__ void kernel_update_tsdf(
 void surfaceReconstruction(
     const GpuMat& depth,
     const CameraParameters& cam, const Eigen::Matrix4f& T_c_w,
-    const float& truncation_distance,
     TSDFData& tsdf_data
 )
 {
@@ -79,7 +78,7 @@ void surfaceReconstruction(
         depth, cam, 
         T_c_w.block<3, 3>(0, 0).transpose(), - T_c_w.block<3, 3>(0, 0).transpose() * T_c_w.block<3, 1>(0, 3),
         tsdf_data.volume_size, tsdf_data.voxel_scale,
-        truncation_distance,
+        tsdf_data.truncation_distance,
         tsdf_data.tsdf
     );
 

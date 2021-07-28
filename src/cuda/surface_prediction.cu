@@ -170,7 +170,6 @@ void raycastTSDF(
     const TSDFData &tsdf_data,
     const CameraParameters &cam,
     const Eigen::Matrix4f &T_c_w,
-    const float &trancation_distance,
     GpuMat &vertex_map, GpuMat &normal_map
 )
 {
@@ -184,7 +183,7 @@ void raycastTSDF(
         tsdf_data.tsdf, cam, 
         T_c_w.block<3, 3>(0, 0), T_c_w.block<3, 1>(0, 3),
         tsdf_data.volume_size, tsdf_data.voxel_scale,
-        trancation_distance,
+        tsdf_data.truncation_distance,
         vertex_map, normal_map
     );
 
