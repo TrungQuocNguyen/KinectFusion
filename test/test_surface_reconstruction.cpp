@@ -55,7 +55,7 @@ int main()
     K(1, 1) = cam.fy;
     K(0, 2) = cam.cx;
     K(1, 2) = cam.cy;
-    cv::viz::WCameraPosition wcam(K, 1.0, cv::viz::Color::red());
+    cv::viz::WCameraPosition wcam(K, 100, cv::viz::Color::red());
     my_window.showWidget("cam", wcam);
 
     int num_levels {Config::get<int>("num_levels")};
@@ -102,11 +102,16 @@ int main()
 
         cv::viz::WCloud point_cloud(pc.vertices);
         my_window.showWidget("points", point_cloud);
-        cv::viz::WCloudNormals normal_cloud(pc.vertices, pc.normals, 64, 0.10, cv::viz::Color::red());
+        cv::viz::WCloudNormals normal_cloud(pc.vertices, pc.normals, 64, 1, cv::viz::Color::red());
         my_window.showWidget("normals", normal_cloud);
 
         my_window.setWidgetPose("cam", cv::Affine3f(T));
         my_window.spinOnce(1);
+
+        cv::imshow("img", img);
+        int k = cv::waitKey(1);
+        if (k == 'q') break;  // press q to quit
+        else if (k == ' ') cv::waitKey(0);  // press space to stop
     }
 
     pc = extractPointCloud(tsdf_data, 3 * 1000000);

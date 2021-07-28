@@ -32,7 +32,7 @@ int main()
     K(1, 1) = cam.fy;
     K(0, 2) = cam.cx;
     K(1, 2) = cam.cy;
-    cv::viz::WCameraPosition wcam(K, 1.0, cv::viz::Color::red());
+    cv::viz::WCameraPosition wcam(K, 100, cv::viz::Color::red());
     my_window.showWidget("cam", wcam);
 
     int num_levels {Config::get<int>("num_levels")};
