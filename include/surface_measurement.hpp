@@ -16,25 +16,25 @@ void surfaceMeasurement(
     const cv::Mat& depth, const cv::Mat& img,
     const int& num_layers, const int& kernel_size, const float& sigma_color, const float& sigma_spatial,
     const CameraParameters& cam,
-    FrameData& data
+    FrameData& frame
 )
 {
-    data.depth_pyramid[0].upload(depth);
-    data.color_map.upload(img);
+    frame.depth_pyramid[0].upload(depth);
+    frame.color_map.upload(img);
     
     cv::cuda::Stream stream;
 
     // Step 1: Subsample depth get pyramids (different scales of the images)
     for (int i = 0; i < num_layers - 1; i++)
     {
-        cv::cuda::pyrDown(data.depth_pyramid[i], data.depth_pyramid[i + 1], stream);
+        cv::cuda::pyrDown(frame.depth_pyramid[i], frame.depth_pyramid[i + 1], stream);
     }
     
     // Step 2: Smooth the depth image with bilateral filtering
     for (int i = 0; i < num_layers; i++)
     {
         cv::cuda::bilateralFilter(
-            data.depth_pyramid[i], data.depth_pyramid[i], 
+            frame.depth_pyramid[i], frame.depth_pyramid[i], 
             kernel_size, sigma_color, sigma_spatial, cv::BORDER_DEFAULT, stream
         );
     }
@@ -42,7 +42,7 @@ void surfaceMeasurement(
     // Step 3: Compute vertex and normal maps 
     for (int i = 0; i < num_layers; i++)
     {
-        computeVertexMap(data.depth_pyramid[i], cam.getCameraParameters(i), data.vertex_pyramid[i]);
-        computeNormalMap(data.vertex_pyramid[i], data.normal_pyramid[i]);
+        computeVertexMap(frame.depth_pyramid[i], cam.getCameraParameters(i), frame.vertex_pyramid[i]);
+        computeNormalMap(frame.vertex_pyramid[i], frame.normal_pyramid[i]);
     }
 }

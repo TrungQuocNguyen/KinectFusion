@@ -48,10 +48,13 @@ int main()
             kinfu.setPose(current_pose);
         }
 
-        kinfu.addFrame(img, depth, dataset.getTimestamp(index), true);
+        kinfu.addFrame(img, depth, dataset.getTimestamp(index));
         
         // Visualization
-        kinfu.visualize3d(my_window, img, true);
+        // TODO: make another thread
+        // TODO: visualize by gpu
+        kinfu.showImages(img, depth);
+        kinfu.visualize3D(my_window, img, true);
 
         int k = cv::waitKey(1);
         if (k == 'q') break;  // press q to quit

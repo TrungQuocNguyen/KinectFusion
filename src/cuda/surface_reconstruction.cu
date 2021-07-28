@@ -67,7 +67,7 @@ __global__ void kernel_update_tsdf(
 
 
 void surfaceReconstruction(
-    const cv::cuda::GpuMat& depth,
+    const GpuMat& depth,
     const CameraParameters& cam, const Eigen::Matrix4f& T_c_w,
     const float& truncation_distance,
     TSDFData& tsdf_data

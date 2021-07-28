@@ -5,6 +5,7 @@ include/Eigen
 
 data/TUMRGBD
 data/*.yaml
+data/tumrgbd.yaml
 !data/template.yaml
 
 thirdparty/

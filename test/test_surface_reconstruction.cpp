@@ -1,3 +1,4 @@
+#include <opencv2/viz/viz3d.hpp>
 #include "utils.hpp"
 #include "dataset.hpp"
 #include "datatypes.hpp"
@@ -44,20 +45,36 @@ int main()
     Dataset dataset = TUMRGBDDataset(dataset_dir, static_cast<TUMRGBDDataset::TUMRGBD>(Config::get<int>("tumrgbd")));
     auto cam = dataset.getCameraParameters();
 
+    // visualization to check normals and vertices
+    cv::viz::Viz3d my_window("Surface Prediction");
+    my_window.setBackgroundColor(cv::viz::Color::black());
+    // Show coordinate system
+    my_window.showWidget("Coordinate Widget", cv::viz::WCoordinateSystem());
+    cv::Matx33f K = cv::Matx33f::eye();
+    K(0, 0) = cam.fx;
+    K(1, 1) = cam.fy;
+    K(0, 2) = cam.cx;
+    K(1, 2) = cam.cy;
+    cv::viz::WCameraPosition wcam(K, 1.0, cv::viz::Color::red());
+    my_window.showWidget("cam", wcam);
+
     int num_levels {Config::get<int>("num_levels")};
     int kernel_size {Config::get<int>("bf_kernel_size")};
     float sigma_color {Config::get<float>("bf_sigma_color")};
     float sigma_spatial {Config::get<float>("bf_sigma_spatial")};
     float truncation_distance {Config::get<float>("truncation_distance")};
     TSDFData tsdf_data(make_int3(Config::get<int>("tsdf_size_x"), Config::get<int>("tsdf_size_y"), Config::get<int>("tsdf_size_z")), Config::get<int>("tsdf_scale"));
+    FrameData frame(num_levels, cam);
     Eigen::Matrix4f current_pose = Eigen::Matrix4f::Identity();
-    FrameData data(num_levels, cam);
+    PointCloud pc;
     for (int index = 0; index < dataset.size(); ++index)
     {
         cv::Mat img, depth;
         dataset.getData(index, img, depth);
         depth *= 1000.f;  // m -> mm
         
+        Timer timer("Frame " + std::to_string(index));
+
         if (index != 0)
         {
             // get ground truth pose
@@ -66,12 +83,34 @@ int main()
             current_pose = current_pose * rel_pose;
         }
 
-        surfaceMeasurement(depth, img, num_levels, kernel_size, sigma_color, sigma_spatial, cam, data);
-        surfaceReconstruction(data.depth_pyramid[0], cam, current_pose, truncation_distance, tsdf_data);
+        surfaceMeasurement(depth, img, num_levels, kernel_size, sigma_color, sigma_spatial, cam, frame);
+        timer.print("Surface Measurement");
+
+        surfaceReconstruction(frame.depth_pyramid[0], cam, current_pose, truncation_distance, tsdf_data);
+        timer.print("Surface Reconstruction");
+
+        cv::Matx44f T = cv::Matx44f::eye();
+        for (int y = 0; y < 4; ++y)
+        {
+            for (int x = 0; x < 4; ++x)
+            {
+                T(y, x) = current_pose(y, x);
+            }
+        }
+
+        pc = extractPointCloud(tsdf_data, 3 * 1000000);
+
+        cv::viz::WCloud point_cloud(pc.vertices);
+        my_window.showWidget("points", point_cloud);
+        cv::viz::WCloudNormals normal_cloud(pc.vertices, pc.normals, 64, 0.10, cv::viz::Color::red());
+        my_window.showWidget("normals", normal_cloud);
+
+        my_window.setWidgetPose("cam", cv::Affine3f(T));
+        my_window.spinOnce(1);
     }
 
-    PointCloud pc = extractPointCloud(tsdf_data, 3 * 1000000);
+    pc = extractPointCloud(tsdf_data, 3 * 1000000);
     int tmp = dataset_dir.rfind("/", dataset_dir.size() - 2);
     std::string dataset_name = dataset_dir.substr(tmp + 1, dataset_dir.size() - tmp - 2);
     exportPly(dataset_name + ".ply", pc);
-}
+}vtkGPUVolumeRayCastMapper

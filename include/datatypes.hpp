@@ -43,7 +43,8 @@ struct FrameData
     std::vector<GpuMat> depth_pyramid;
     std::vector<GpuMat> vertex_pyramid;
     std::vector<GpuMat> normal_pyramid;
-    Eigen::Matrix4f T_g_k;
+
+    FrameData() {}
 
     FrameData(const int& num_layers, CameraParameters &cam) :
         depth_pyramid(num_layers), vertex_pyramid(num_layers), normal_pyramid(num_layers)
@@ -57,6 +58,9 @@ struct FrameData
             depth_pyramid[i] = cv::cuda::createContinuous(height, width, CV_32FC1);
             vertex_pyramid[i] = cv::cuda::createContinuous(height, width, CV_32FC3);
             normal_pyramid[i] = cv::cuda::createContinuous(height, width, CV_32FC3);
+            depth_pyramid[i].setTo(0);
+            vertex_pyramid[i].setTo(0);
+            normal_pyramid[i].setTo(0);
         }
     }
 };

@@ -13,13 +13,15 @@ __global__ void kernel_extract_pointcloud(
     const int y = blockIdx.y * blockDim.y + threadIdx.y;
 
     if (x >= volume_size.x - 1 || y >= volume_size.y - 1) return;
+    
+    const Vector3f_da offset(volume_size.x / 2.f, volume_size.y / 2.f, volume_size.z / 2.f);
 
     for (int z = 0; z < volume_size.z - 1; ++z) 
     {
         const short2 value = tsdf_volume.ptr(z * volume_size.y + y)[x];
 
         const float tsdf = static_cast<float>(value.x) * INV_SHORT_MAX;
-        if (tsdf == 0 || tsdf < - 1.f || tsdf > 1.f) continue;
+        if (tsdf < - 1.f + EPSILON || tsdf > 1.f - EPSILON) continue;
 
         short2 vx = tsdf_volume.ptr((z) * volume_size.y + y)[x + 1];
         short2 vy = tsdf_volume.ptr((z) * volume_size.y + y + 1)[x];
@@ -35,18 +37,16 @@ __global__ void kernel_extract_pointcloud(
         const bool is_surface_y = ((tsdf > 0) && (tsdf_y < 0)) || ((tsdf < 0) && (tsdf_y > 0));
         const bool is_surface_z = ((tsdf > 0) && (tsdf_z < 0)) || ((tsdf < 0) && (tsdf_z > 0));
 
-        if (is_surface_x || is_surface_y || is_surface_z) {
-            Eigen::Vector3f normal;
-            normal.x() = (tsdf_x - tsdf);
-            normal.y() = (tsdf_y - tsdf);
-            normal.z() = (tsdf_z - tsdf);
-            if (normal.norm() == 0) continue;
+        if (is_surface_x || is_surface_y || is_surface_z)
+        {
+            Eigen::Vector3f normal(tsdf_x - tsdf, tsdf_y - tsdf, tsdf_z - tsdf);
+            if (normal.norm() < EPSILON) continue;
             normal.normalize();
 
             int count = 0;
-            if (is_surface_x) count++;
-            if (is_surface_y) count++;
-            if (is_surface_z) count++;
+            if (is_surface_x) ++count;
+            if (is_surface_y) ++count;
+            if (is_surface_z) ++count;
             int index = atomicAdd(point_num, count);
 
             Vector3f_da position(
@@ -54,26 +54,32 @@ __global__ void kernel_extract_pointcloud(
                 (static_cast<float>(y) + 0.5f) * voxel_scale,
                 (static_cast<float>(z) + 0.5f) * voxel_scale
             );
-            if (is_surface_x) {
-                position.x() = position.x() - (tsdf / (tsdf_x - tsdf)) * voxel_scale;
+
+            position -= offset * voxel_scale;
+
+            if (is_surface_x)
+            {
+                position[0] -= (tsdf / (tsdf_x - tsdf)) * voxel_scale;
 
                 vertices.ptr(0)[index] = float3{position(0), position(1), position(2)};
                 normals.ptr(0)[index] = float3{normal(0), normal(1), normal(2)};
-                index++;
+                ++index;
             }
-            if (is_surface_y) {
-                position.y() -= (tsdf / (tsdf_y - tsdf)) * voxel_scale;
+            if (is_surface_y) 
+            {
+                position[1] -= (tsdf / (tsdf_y - tsdf)) * voxel_scale;
 
                 vertices.ptr(0)[index] = float3{position(0), position(1), position(2)};;
                 normals.ptr(0)[index] = float3{normal(0), normal(1), normal(2)};
-                index++;
+                ++index;
             }
-            if (is_surface_z) {
-                position.z() -= (tsdf / (tsdf_z - tsdf)) * voxel_scale;
+            if (is_surface_z)
+            {
+                position[2] -= (tsdf / (tsdf_z - tsdf)) * voxel_scale;
 
                 vertices.ptr(0)[index] = float3{position(0), position(1), position(2)};;
                 normals.ptr(0)[index] = float3{normal(0), normal(1), normal(2)};
-                index++;
+                ++index;
             }
         }
     }

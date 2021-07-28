@@ -76,6 +76,7 @@ public:
         );
 
         model_data_ = ModelData(num_levels_, cam_);
+        current_frame_ = FrameData(num_levels_, cam_);
     }
 
     void setPose(Eigen::Matrix4f &pose)
@@ -83,16 +84,16 @@ public:
         T_g_k_ = pose;
     }
 
-    bool addFrame(cv::Mat &img, cv::Mat &depth, std::string time_stamp, bool flag_show_img = false)
+    bool addFrame(cv::Mat &img, cv::Mat &depth, std::string time_stamp)
     {
         static int frame_factory_id = 0;
         static float sum_time = 0.;
         Timer timer("Frame " + std::to_string(frame_factory_id));
         
-        FrameData frame(num_levels_, cam_);
+        // FrameData frame(num_levels_, cam_);
         time_stamps_.push_back(time_stamp);
 
-        surfaceMeasurement(depth, img, num_levels_, kernel_size_, sigma_color_, sigma_spatial_, cam_, frame);
+        surfaceMeasurement(depth, img, num_levels_, kernel_size_, sigma_color_, sigma_spatial_, cam_, current_frame_);
         timer.print("Surface Measurement");
 
         if (frame_factory_id == 0)
@@ -105,7 +106,7 @@ public:
             if (!flag_use_gt_pose_)
             {
                 bool icp_success = poseEstimation(
-                    model_data_, frame, cam_, num_levels_, distance_threshold_, angle_threshold_,
+                    model_data_, current_frame_, cam_, num_levels_, distance_threshold_, angle_threshold_,
                     icp_iterations_, T_g_k_
                 );
                 timer.print("Pose Estimation");
@@ -115,7 +116,7 @@ public:
             }
         }
 
-        surfaceReconstruction(frame.depth_pyramid[0], cam_, T_g_k_, truncation_distance_, tsdf_data_);
+        surfaceReconstruction(current_frame_.depth_pyramid[0], cam_, T_g_k_, truncation_distance_, tsdf_data_);
         timer.print("Surface Reconstruction");
 
         surfacePrediction(tsdf_data_, cam_, T_g_k_, truncation_distance_, num_levels_, model_data_);
@@ -123,18 +124,6 @@ public:
 
         sum_time += timer.print();
         printf("[ FPS ] : %f\n", (frame_factory_id + 1) * 1000.f / sum_time);
-        
-        if (flag_show_img)
-        {
-            cv::Mat measured_normals, measured_depth;
-            frame.normal_pyramid[0].download(measured_normals);
-            frame.depth_pyramid[0].download(measured_depth);
-            cv::imshow("raw img", img);
-            cv::imshow("raw depth", depth / 1000.f);
-            cv::imshow("measured normals", measured_normals);
-            cv::imshow("measured depth", measured_depth / 1000.f);
-            cv::waitKey(1);
-        }        
 
         frame_factory_id++;
         return true;
@@ -164,17 +153,25 @@ public:
         exportPly(filename, pc);
     }
 
-    void visualize3d(cv::viz::Viz3d &window, cv::Mat &img, bool show_img = false)
+    void showImages(cv::Mat &img, cv::Mat &depth)
     {
-        cv::Mat normals, vertices;
-        model_data_.normal_pyramid[0].download(normals);
-        model_data_.vertex_pyramid[0].download(vertices);
+        cv::Mat measured_normals, measured_depth, pred_normals;
+        model_data_.normal_pyramid[0].download(pred_normals);
+        current_frame_.normal_pyramid[0].download(measured_normals);
+        current_frame_.depth_pyramid[0].download(measured_depth);
+        cv::imshow("raw img", img);
+        cv::imshow("raw depth", depth / 1000.f);
+        cv::imshow("measured normals", measured_normals);
+        cv::imshow("measured depth", measured_depth / 1000.f);
+        cv::imshow("predicted normal", pred_normals);
+        cv::waitKey(1);        
+    }
 
-        if (show_img)
-        {
-            cv::imshow("predicted normal", normals);
-            cv::waitKey(1);
-        }
+    void visualize3D(cv::viz::Viz3d &window, cv::Mat &img, bool flag_show_all_points = false)
+    {
+        cv::Mat pred_normals, pred_vertices;
+        model_data_.normal_pyramid[0].download(pred_normals);
+        model_data_.vertex_pyramid[0].download(pred_vertices);
 
         cv::Matx44f T = cv::Matx44f::eye();
         for (int y = 0; y < 4; ++y)
@@ -184,11 +181,18 @@ public:
                 T(y, x) = T_g_k_.matrix()(y, x);
             }
         }
-        cv::viz::WCloud point_cloud(vertices, img);
-        window.showWidget("points", point_cloud);
+        cv::viz::WCloud pred_point_cloud(pred_vertices, img);
+        window.showWidget("predicted vertices", pred_point_cloud);
 
-        cv::viz::WCloudNormals normal_cloud(vertices, normals, 64, 0.10, cv::viz::Color::red());
-        window.showWidget("normals", normal_cloud);
+        cv::viz::WCloudNormals pred_normal_cloud(pred_vertices, pred_normals, 64, 1, cv::viz::Color::red());
+        window.showWidget("predicted normals", pred_normal_cloud);
+
+        if (flag_show_all_points)
+        {
+            PointCloud pc = extractPointCloud(tsdf_data_, 3 * 1000000);
+            cv::viz::WCloud point_cloud(pc.vertices);
+            window.showWidget("points", point_cloud);
+        }
 
         window.setWidgetPose("cam", cv::Affine3f(T));
         window.spinOnce(1);
@@ -215,6 +219,7 @@ private:
     TSDFData tsdf_data_;
 
     std::vector<FrameData> frames_data_;  
+    FrameData current_frame_;
     ModelData model_data_;
 
     Eigen::Matrix4f T_g_k_;  // current pose
