@@ -29,3 +29,6 @@ tsdf_size_x: 512
 tsdf_size_y: 512
 tsdf_size_z: 512
 tsdf_scale: 10.  # mm
+
+# ---- visualize
+flag_visualize_all_points: 0  # slow

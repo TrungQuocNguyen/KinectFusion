@@ -135,7 +135,7 @@ public:
         {
             Eigen::Matrix4f pose = estimated_poses_[index];
             pose.block<3, 1>(0, 3) *= 0.001f;  // save in meter
-            pose = pose * init_pose;
+            pose = init_pose * pose;
 
             Eigen::Vector3f t = pose.block<3, 1>(0, 3);
             auto q = Eigen::Quaternionf(pose.block<3, 3>(0, 0));
@@ -159,9 +159,9 @@ public:
         current_frame_.normal_pyramid[0].download(measured_normals);
         current_frame_.depth_pyramid[0].download(measured_depth);
         cv::imshow("raw img", img);
-        cv::imshow("raw depth", depth / 1000.f);
+        cv::imshow("raw depth", depth / 5000.f);
         cv::imshow("measured normals", measured_normals);
-        cv::imshow("measured depth", measured_depth / 1000.f);
+        cv::imshow("measured depth", measured_depth / 5000.f);
         cv::imshow("predicted normal", pred_normals);
         cv::waitKey(1);        
     }

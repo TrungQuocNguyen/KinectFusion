@@ -22,6 +22,7 @@ int main()
     Eigen::Matrix4f gt_init_pose = dataset.getPose(0);
 
     // for visualization
+    bool flag_visualize_all_points = Config::get<int>("flag_visualize_all_points") == 1;
     cv::viz::Viz3d my_window("Surface Prediction");
     my_window.setBackgroundColor(cv::viz::Color::black());
     // Show coordinate system
@@ -40,7 +41,7 @@ int main()
         dataset.getData(index, img, depth);
         depth *= 1000.f;  // m -> mm
         
-        if (flag_use_gt_pose)
+        if (index != 0 && flag_use_gt_pose)
         {
             Eigen::Matrix4f rel_pose = dataset.getPose(index - 1).inverse() * dataset.getPose(index);
             rel_pose.block<3, 1>(0, 3) *= 1000.f;  // m -> mm
@@ -54,7 +55,7 @@ int main()
         // TODO: make another thread
         // TODO: visualize by gpu
         kinfu.showImages(img, depth);
-        kinfu.visualize3D(my_window, img, true);
+        kinfu.visualize3D(my_window, img, flag_visualize_all_points);
 
         int k = cv::waitKey(1);
         if (k == 'q') break;  // press q to quit
@@ -63,10 +64,11 @@ int main()
     
     int tmp = dataset_dir.rfind("/", dataset_dir.size() - 2);
     std::string dataset_name = dataset_dir.substr(tmp + 1, dataset_dir.size() - tmp - 2);
+    if (flag_use_gt_pose) dataset_name += "_gt";
 
     // save as point cloud
     kinfu.savePointcloud(dataset_name + ".ply", 3 * 1000000);
 
     // save poses
-    kinfu.savePoses(dataset_name + "_pose.txt", gt_init_pose);
+    if (!flag_use_gt_pose) kinfu.savePoses(dataset_name + "_pose.txt", gt_init_pose);
 }

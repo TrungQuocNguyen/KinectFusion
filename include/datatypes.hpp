@@ -81,8 +81,6 @@ struct ModelData
             auto scaled_cam = cam.getCameraParameters(level);
             vertex_pyramid[level] = cv::cuda::createContinuous(scaled_cam.height, scaled_cam.width, CV_32FC3);
             normal_pyramid[level] = cv::cuda::createContinuous(scaled_cam.height, scaled_cam.width, CV_32FC3);
-            vertex_pyramid[level].setTo(0);
-            normal_pyramid[level].setTo(0);
         }
     }
 
