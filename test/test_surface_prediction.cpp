@@ -1,7 +1,15 @@
 #include <opencv2/viz/viz3d.hpp>
+#include "utils.hpp"
 #include "dataset.hpp"
 #include "datatypes.hpp"
 #include "surface_measurement.hpp"
+#include "surface_prediction.hpp"
+
+void surfaceReconstruction(
+    const cv::cuda::GpuMat& depth, 
+    const CameraParameters& cam, const Eigen::Matrix4f& T_c_w,
+    const float& truncation_distance, TSDFData& volume
+);
 
 
 int main()

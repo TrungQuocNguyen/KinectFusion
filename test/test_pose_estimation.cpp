@@ -5,7 +5,7 @@
 
 int main()
 {
-    if (Config::setParameterFile("../data/tumrgbd.yaml") == false) return -1;
+    if (Config::read("../data/tumrgbd.yaml") == false) return -1;
 
     std::string dataset_dir = Config::get<std::string>("dataset_dir");
     Dataset dataset = TUMRGBDDataset(dataset_dir, static_cast<TUMRGBDDataset::TUMRGBD>(Config::get<int>("tumrgbd")));
@@ -42,7 +42,7 @@ int main()
         bool icp_success {true};
         if (index > 0)
         {
-            icp_success = pose_estimation(
+            icp_success = poseEstimation(
                 current_pose, frame_data, model_data, cam,
                 configuration.num_levels,
                 configuration.distance_threshold, configuration.angle_threshold,
@@ -50,11 +50,11 @@ int main()
             );
         }
 
-        surface_reconstruction(data.depth_pyramid[0], cam, current_pose, truncation_distance, tsdf_data);
+        surfaceReconstruction(data.depth_pyramid[0], cam, current_pose, truncation_distance, tsdf_data);
 
         for (int level = 0; level < num_levels; ++level)
         {
-            surface_prediction(
+            surfacePrediction(
                 tsdf_data, cam.getCameraParameters(level), current_pose,
                 truncation_distance,
                 model_data.vertex_pyramid[level], model_data.normal_pyramid[level]
