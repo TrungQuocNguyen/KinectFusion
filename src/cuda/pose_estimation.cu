@@ -1,4 +1,3 @@
-
 #include <cuda/kernel_common.cuh>
 #include <datatypes.hpp>
 
@@ -56,7 +55,7 @@ __global__ void kernel_pose_estimate(
 {
     const uint x = blockIdx.x * blockDim.x + threadIdx.x;
     const uint y = blockIdx.y * blockDim.y + threadIdx.y;
-    float row[7] {};
+    float temp[7] {};
     if (x <= curr_vertex_map.cols - 1 && y <= curr_vertex_map.rows - 1)
     {
         const float3* curr_vertex = &curr_vertex_map.ptr(y)[x];
@@ -89,9 +88,9 @@ __global__ void kernel_pose_estimate(
                                 const Vector3f_da prev_normal_g {prev_normal->x, prev_normal->y, prev_normal->z};
                                 if (abs(curr_normal_g.dot(prev_normal_g)) >= angle_threshold)
                                 {
-                                    *(Vector3f_da*) &row[0] = curr_vertex_g.cross(prev_normal_g);
-                                    *(Vector3f_da*) &row[3] = prev_normal_g;
-                                    row[6] = prev_normal_g.dot(prev_vertex_g - curr_vertex_g);
+                                    *(Vector3f_da*) &temp[0] = curr_vertex_g.cross(prev_normal_g);
+                                    *(Vector3f_da*) &temp[3] = prev_normal_g;
+                                    temp[6] = prev_normal_g.dot(prev_vertex_g - curr_vertex_g);
                                 }
                             }                            
                         }
@@ -101,7 +100,7 @@ __global__ void kernel_pose_estimate(
         }
     }    
     
-    __shared__ double smem[BLOCK_SIZE_X * BLOCK_SIZE_Y];
+    __shared__ double shared_memory[BLOCK_SIZE_X * BLOCK_SIZE_Y];
     const int tid = threadIdx.y * blockDim.x + threadIdx.x;
 
     int shift = 0;
@@ -110,14 +109,14 @@ __global__ void kernel_pose_estimate(
         for (int j = i; j < 7; ++j)
         {
             __syncthreads();
-            smem[tid] = row[i] * row[j];
+            shared_memory[tid] = temp[i] * temp[j];
             __syncthreads();
 
-            reduce<BLOCK_SIZE_X * BLOCK_SIZE_Y>(smem);
+            reduce<BLOCK_SIZE_X * BLOCK_SIZE_Y>(shared_memory);
 
             if (tid == 0)
             {
-                global_buffer.ptr(shift++)[gridDim.x * blockIdx.y + blockIdx.x] = smem[0];
+                global_buffer.ptr(shift++)[gridDim.x * blockIdx.y + blockIdx.x] = shared_memory[0];
             }                
         }
     }
@@ -137,8 +136,9 @@ __global__ void estimate_kernel(
     const int x = blockIdx.x * blockDim.x + threadIdx.x;
     const int y = blockIdx.y * blockDim.y + threadIdx.y;
 
-    Vector3f_da n, d, s;
-    bool correspondence_found = false;
+    float temp[7];
+    temp[0] = temp[1] = temp[2] = temp[3] = temp[4] = temp[5] = temp[6] = 0.f;
+    Vector3f_da prev_normal, prev_vertex, curr_vertex;
 
     if (x < vertex_map.cols && y < vertex_map.rows)
     {
@@ -179,7 +179,6 @@ __global__ void estimate_kernel(
                     {
                         curr_normal.y() = normal_map.ptr(y)[x].y;
                         curr_normal.z() = normal_map.ptr(y)[x].z;
-
                         Vector3f_da curr_normal_g = rotation * curr_normal;
 
                         prev_normal_g.y() = prev_normal_map.ptr(point.y())[point.x()].y;
@@ -187,32 +186,20 @@ __global__ void estimate_kernel(
 
                         if (curr_normal_g.dot(prev_normal_g) >= angle_threshold)
                         {
-                            n = prev_normal_g;
-                            d = prev_vertex_g;
-                            s = curr_vertex_g;
-
-                            correspondence_found = true;
+                            prev_normal = prev_normal_g;
+                            prev_vertex = prev_vertex_g;
+                            curr_vertex = curr_vertex_g;
+                            *(Vector3f_da*) &temp[0] = curr_vertex.cross(prev_normal);
+                            *(Vector3f_da*) &temp[3] = prev_normal;
+                            temp[6] = prev_normal.dot(prev_vertex - curr_vertex);
                         }
                     }
                 }
             }
         }
-    }
+    }   
 
-    float row[7];
-
-    if (correspondence_found) 
-    {
-        *(Vector3f_da*) &row[0] = s.cross(n);
-        *(Vector3f_da*) &row[3] = n;
-        row[6] = n.dot(d - s);
-    }
-    else
-    {
-        row[0] = row[1] = row[2] = row[3] = row[4] = row[5] = row[6] = 0.f;
-    }        
-
-    __shared__ double smem[BLOCK_SIZE_X * BLOCK_SIZE_Y];
+    __shared__ double shared_memory[BLOCK_SIZE_X * BLOCK_SIZE_Y];
     const int tid = threadIdx.y * blockDim.x + threadIdx.x;
 
     int shift = 0;
@@ -221,12 +208,11 @@ __global__ void estimate_kernel(
         for (int j = i; j < 7; ++j)
         {
             __syncthreads();
-            smem[tid] = row[i] * row[j];
+            shared_memory[tid] = temp[i] * temp[j];
             __syncthreads();
+            reduce<BLOCK_SIZE_X * BLOCK_SIZE_Y>(shared_memory);
 
-            reduce<BLOCK_SIZE_X * BLOCK_SIZE_Y>(smem);
-
-            if (tid == 0) global_buffer.ptr(shift++)[gridDim.x * blockIdx.y + blockIdx.x] = smem[0];
+            if (tid == 0) global_buffer.ptr(shift++)[gridDim.x * blockIdx.y + blockIdx.x] = shared_memory[0];
         }
     }
 }
@@ -242,14 +228,13 @@ __global__ void reduction_kernel(
         sum += *(global_buffer.ptr(blockIdx.x) + t);
     }        
 
-    __shared__ double smem[512];
-
-    smem[threadIdx.x] = sum;
+    __shared__ double shared_memory[512];
+    shared_memory[threadIdx.x] = sum;
     __syncthreads();
 
-    reduce<512>(smem);
+    reduce<512>(shared_memory);
 
-    if (threadIdx.x == 0) output.ptr(blockIdx.x)[0] = smem[0];
+    if (threadIdx.x == 0) output.ptr(blockIdx.x)[0] = shared_memory[0];
 };
 
 
