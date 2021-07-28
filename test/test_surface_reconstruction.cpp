@@ -113,4 +113,4 @@ int main()
     int tmp = dataset_dir.rfind("/", dataset_dir.size() - 2);
     std::string dataset_name = dataset_dir.substr(tmp + 1, dataset_dir.size() - tmp - 2);
     exportPly(dataset_name + ".ply", pc);
-}vtkGPUVolumeRayCastMapper
+}
