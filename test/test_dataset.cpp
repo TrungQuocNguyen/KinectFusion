@@ -8,7 +8,7 @@
 
 int main()
 {
-    if (Config::setParameterFile("../data/tumrgbd.yaml") == false) return -1;
+    if (Config::read("../data/tumrgbd.yaml") == false) return -1;
     std::string dataset_dir = Config::get<std::string>("dataset_dir");
 
     // The first argument should be the path to the dataset directory

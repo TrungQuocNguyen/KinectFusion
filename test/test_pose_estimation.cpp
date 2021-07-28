@@ -3,7 +3,7 @@
 #include "datatypes.hpp"
 
 
-int main(int argc, char **argv)
+int main()
 {
     if (Config::setParameterFile("../data/tumrgbd.yaml") == false) return -1;
 
@@ -36,18 +36,8 @@ int main(int argc, char **argv)
         dataset.getData(index, img, depth);
         depth *= 1000.f;  // m -> mm
         
-        /*
-        if (index != 0)
-        {
-            // get ground truth pose
-            Eigen::Matrix4f rel_pose = dataset.getPose(index - 1).inverse() * dataset.getPose(index);
-            rel_pose.block<3, 1>(0, 3) *= 1000.f;  // m -> mm
-            current_pose = current_pose * rel_pose;
-        }
-        */
-
-        PreprocessedData data(num_levels);
-        surface_measurement(data, depth, img, num_levels, kernel_size, sigma_color, sigma_spatial, cam, 4000.f);
+        FrameData data(num_levels);
+        surfaceMeasurement(data, depth, img, num_levels, kernel_size, sigma_color, sigma_spatial, cam, 4000.f);
 
         bool icp_success {true};
         if (index > 0)
