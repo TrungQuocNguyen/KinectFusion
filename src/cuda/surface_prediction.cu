@@ -14,13 +14,13 @@ float interpolate_trilinearly(
     const float vy = (static_cast<float>(point_in_grid[1]) + 0.5f);
     const float vz = (static_cast<float>(point_in_grid[2]) + 0.5f);
 
-    point_in_grid.x() = (point[0] < vx) ? (point_in_grid[0] - 1) : point_in_grid[0];
-    point_in_grid.y() = (point[1] < vy) ? (point_in_grid[1] - 1) : point_in_grid[1];
-    point_in_grid.z() = (point[2] < vz) ? (point_in_grid[2] - 1) : point_in_grid[2];
+    point_in_grid[0] = (point[0] < vx) ? (point_in_grid[0] - 1) : point_in_grid[0];
+    point_in_grid[1] = (point[1] < vy) ? (point_in_grid[1] - 1) : point_in_grid[1];
+    point_in_grid[2] = (point[2] < vz) ? (point_in_grid[2] - 1) : point_in_grid[2];
 
-    const float a = point.x() - (static_cast<float>(point_in_grid.x()) + 0.5f);
-    const float b = point.y() - (static_cast<float>(point_in_grid.y()) + 0.5f);
-    const float c = point.z() - (static_cast<float>(point_in_grid.z()) + 0.5f);
+    const float a = point[0] - (static_cast<float>(point_in_grid[0]) + 0.5f);
+    const float b = point[1] - (static_cast<float>(point_in_grid[1]) + 0.5f);
+    const float c = point[2] - (static_cast<float>(point_in_grid[2]) + 0.5f);
 
     const short2* v0 = volume.ptr((point_in_grid[2]) * volume_size.y + point_in_grid[1]);
     const short2* v1 = volume.ptr((point_in_grid[2] + 1) * volume_size.y + point_in_grid[1]);
@@ -39,83 +39,25 @@ float interpolate_trilinearly(
 }
 
 
-__device__ __forceinline__ float get_min_time(const float3& volume_max, const Vector3f_da& origin, const Vector3f_da& direction)
+__device__ __forceinline__ 
+float get_min_length(const float3& volume_max, const Vector3f_da& origin, const Vector3f_da& direction)
 {
-    float txmin = ((direction.x() > 0 ? 0.f : volume_max.x) - origin.x()) / direction.x();
-    float tymin = ((direction.y() > 0 ? 0.f : volume_max.y) - origin.y()) / direction.y();
-    float tzmin = ((direction.z() > 0 ? 0.f : volume_max.z) - origin.z()) / direction.z();
+    float txmin = ((direction[0] > 0 ? 0.f : volume_max.x) - origin[0]) / direction[0];
+    float tymin = ((direction[1] > 0 ? 0.f : volume_max.y) - origin[1]) / direction[1];
+    float tzmin = ((direction[2] > 0 ? 0.f : volume_max.z) - origin[2]) / direction[2];
 
     return fmax(fmax(txmin, tymin), tzmin);
 }
 
 
-__device__ __forceinline__ float get_max_time(const float3& volume_max, const Vector3f_da& origin, const Vector3f_da& direction)
+__device__ __forceinline__
+float get_max_length(const float3& volume_max, const Vector3f_da& origin, const Vector3f_da& direction)
 {
-    float txmax = ((direction.x() > 0 ? volume_max.x : 0.f) - origin.x()) / direction.x();
-    float tymax = ((direction.y() > 0 ? volume_max.y : 0.f) - origin.y()) / direction.y();
-    float tzmax = ((direction.z() > 0 ? volume_max.z : 0.f) - origin.z()) / direction.z();
+    float txmax = ((direction[0] > 0 ? volume_max.x : 0.f) - origin[0]) / direction[0];
+    float tymax = ((direction[1] > 0 ? volume_max.y : 0.f) - origin[1]) / direction[1];
+    float tzmax = ((direction[2] > 0 ? volume_max.z : 0.f) - origin[2]) / direction[2];
 
     return fmin(fmin(txmax, tymax), tzmax);
-}
-
-
-__device__ __forceinline__ 
-void get_min_pos(const Vector3f_da& volume_hsize, const Vector3f_da& pos, const Vector3f_da& direction, Vector3f_da& min_voxel_pos)
-{
-    if (direction[0] < EPSILON && direction[0] > - EPSILON)
-    {
-        min_voxel_pos[0] = - volume_hsize[0];
-    }
-    else
-    {
-        min_voxel_pos[0] = ((direction[0] > 0 ? volume_hsize[0] : - volume_hsize[0]) - pos[0]) / direction[0];
-    }
-    if (direction[1] < EPSILON && direction[1] > - EPSILON)
-    {
-        min_voxel_pos[1] = - volume_hsize[1];
-    }
-    else
-    {
-        min_voxel_pos[1] = ((direction[1] > 0 ? volume_hsize[1] : - volume_hsize[1]) - pos[1]) / direction[1];
-    }
-    if (direction[2] < EPSILON && direction[2] > - EPSILON)
-    {
-        min_voxel_pos[2] = - volume_hsize[2];
-    }
-    else
-    {
-        min_voxel_pos[2] = ((direction[2] > 0 ? volume_hsize[2] : - volume_hsize[2]) - pos[2]) / direction[2];
-    }
-}
-
-
-__device__ __forceinline__ 
-void get_max_pos(const Vector3f_da& volume_hsize, const Vector3f_da& pos, const Vector3f_da& direction, Vector3f_da& max_voxel_pos)
-{
-    if (direction[0] < EPSILON && direction[0] > - EPSILON)
-    {
-        max_voxel_pos[0] = volume_hsize[0];
-    }
-    else
-    {
-        max_voxel_pos[0] = ((direction[0] > 0 ? - volume_hsize[0] : volume_hsize[0]) - pos[0]) / direction[0];
-    }
-    if (direction[1] < EPSILON && direction[1] > - EPSILON)
-    {
-        max_voxel_pos[1] = - volume_hsize[1];
-    }
-    else
-    {
-        max_voxel_pos[1] = ((direction[1] > 0 ? - volume_hsize[1] : volume_hsize[1]) - pos[1]) / direction[1];
-    }
-    if (direction[2] < EPSILON && direction[2] > - EPSILON)
-    {
-        max_voxel_pos[2] = - volume_hsize[2];
-    }
-    else
-    {
-        max_voxel_pos[2] = ((direction[2] > 0 ? - volume_hsize[2] : volume_hsize[2]) - pos[2]) / direction[2];
-    }
 }
 
 
@@ -142,13 +84,9 @@ void kernel_raycast_tsdf(
 
     float min_length = 0.f;
     const Vector3f_da voxel_w = t_w_c + offset;
-
-    Vector3f_da min_voxel_pos, max_voxel_pos;
-    get_min_pos(offset, t_w_c, ray_direction, min_voxel_pos);
-    get_max_pos(offset, t_w_c, ray_direction, max_voxel_pos);
     
-    float ray_length = fmax(get_min_time(volume_range, t_w_c + offset, ray_direction), 0.f);
-    const float max_length = get_max_time(volume_range, t_w_c + offset, ray_direction);
+    float ray_length = fmax(get_min_length(volume_range, t_w_c + offset, ray_direction), 0.f);
+    const float max_length = get_max_length(volume_range, t_w_c + offset, ray_direction);
     if (ray_length >= max_length) return;
 
     ray_length += voxel_scale / 2.f;
@@ -198,32 +136,32 @@ void kernel_raycast_tsdf(
             const float Fx1 = interpolate_trilinearly(shifted, tsdf_volume, volume_size, voxel_scale);
 
             shifted = location_in_grid;
-            shifted.x() -= 1;
-            if (shifted.x() < 1) break;
+            shifted[0] -= 1;
+            if (shifted[0] < 1) break;
             const float Fx2 = interpolate_trilinearly(shifted, tsdf_volume, volume_size, voxel_scale);
 
             normal_w[0] = (Fx1 - Fx2);
 
             shifted = location_in_grid;
-            shifted.y() += 1;
-            if (shifted.y() >= volume_size.y - 1) break;
+            shifted[1] += 1;
+            if (shifted[1] >= volume_size.y - 1) break;
             const float Fy1 = interpolate_trilinearly(shifted, tsdf_volume, volume_size, voxel_scale);
 
             shifted = location_in_grid;
-            shifted.y() -= 1;
-            if (shifted.y() < 1) break;
+            shifted[1] -= 1;
+            if (shifted[1] < 1) break;
             const float Fy2 = interpolate_trilinearly(shifted, tsdf_volume, volume_size, voxel_scale);
 
             normal_w[1] = (Fy1 - Fy2);
 
             shifted = location_in_grid;
-            shifted.z() += 1;
-            if (shifted.z() >= volume_size.z - 1) break;
+            shifted[2] += 1;
+            if (shifted[2] >= volume_size.z - 1) break;
             const float Fz1 = interpolate_trilinearly(shifted, tsdf_volume, volume_size, voxel_scale);
 
             shifted = location_in_grid;
-            shifted.z() -= 1;
-            if (shifted.z() < 1) break;
+            shifted[2] -= 1;
+            if (shifted[2] < 1) break;
             const float Fz2 = interpolate_trilinearly(shifted, tsdf_volume, volume_size, voxel_scale);
 
             normal_w[2] = (Fz1 - Fz2);
@@ -232,8 +170,8 @@ void kernel_raycast_tsdf(
 
             normal_w.normalize();
 
-            vertex_map.ptr(y)[x] = make_float3(vertex_w.x(), vertex_w.y(), vertex_w.z());
-            normal_map.ptr(y)[x] = make_float3(normal_w.x(), normal_w.y(), normal_w.z());
+            vertex_map.ptr(y)[x] = make_float3(vertex_w[0], vertex_w[1], vertex_w[2]);
+            normal_map.ptr(y)[x] = make_float3(normal_w[0], normal_w[1], normal_w[2]);
             break;
         }
     }
