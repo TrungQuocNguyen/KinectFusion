@@ -62,7 +62,6 @@ int main()
     int kernel_size {Config::get<int>("bf_kernel_size")};
     float sigma_color {Config::get<float>("bf_sigma_color")};
     float sigma_spatial {Config::get<float>("bf_sigma_spatial")};
-    float truncation_distance {Config::get<float>("truncation_distance")};
     TSDFData tsdf(
         make_int3(Config::get<int>("tsdf_size_x"), Config::get<int>("tsdf_size_y"), Config::get<int>("tsdf_size_z")),
         Config::get<int>("tsdf_scale"), Config::get<float>("truncation_distance")
@@ -112,6 +111,7 @@ int main()
         my_window.spinOnce(1);
 
         cv::imshow("img", img);
+        cv::imshow("raw depth", depth / 5000.f);
         int k = cv::waitKey(1);
         if (k == 'q') break;  // press q to quit
         else if (k == ' ') cv::waitKey(0);  // press space to stop

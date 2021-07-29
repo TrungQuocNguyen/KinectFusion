@@ -58,9 +58,6 @@ struct FrameData
             depth_pyramid[i] = cv::cuda::createContinuous(height, width, CV_32FC1);
             vertex_pyramid[i] = cv::cuda::createContinuous(height, width, CV_32FC3);
             normal_pyramid[i] = cv::cuda::createContinuous(height, width, CV_32FC3);
-            depth_pyramid[i].setTo(0);
-            vertex_pyramid[i].setTo(0);
-            normal_pyramid[i].setTo(0);
         }
     }
 };

@@ -18,24 +18,28 @@ KinectFusion paper: https://www.microsoft.com/en-us/research/wp-content/uploads/
 sh data/download_tumrgbd.sh
 ```
 
-You can add dataset links into ```data/rgbd_tum_datasets.txt```. 
+You can add the dataset links into ```data/rgbd_tum_datasets.txt```. 
 
 ## Set Parameters
 
-Make yaml file to set parameters.
+Create a yaml file to set the parameters.
 Copy ```data/template.yaml``` if you want to make new one.
 
 ## Run on TUM-RGBD
 
-```cp data/template.yaml data/tumrgbd.yaml```
+```
+cp data/template.yaml data/tumrgbd.yaml
+```
+
 Run ```run_kinectfusion_tumrgbd.cpp```.
 
-It generates pointcloud ply file and pose text file.
+It generates a pointcloud ply file and the pose text file.
 
-You can evaluate pose by [evo](https://github.com/MichaelGrupp/evo).
-Run ```evo_rpe tum ../data/TUMRGBD/rgbd_dataset_freiburg1_xyz/groundtruth.txt rgbd_dataset_freiburg1_xyz_pose.txt -p --plot_mode=xyz'''.
+You can evaluate the estimated pose by [evo](https://github.com/MichaelGrupp/evo).  
 
-You can change the parameters of ```data/tumrgbd.yaml``.
+```
+evo_rpe tum ../data/TUMRGBD/rgbd_dataset_freiburg1_xyz/groundtruth.txt rgbd_dataset_freiburg1_xyz_pose.txt -p --plot_mode=xyz
+```
 
 ## Environment
 
