@@ -74,12 +74,13 @@ int main()
         sum_t += timer.print();
         std::cout << "[ FPS ] : " << (index + 1) * 1000.f / sum_t << std::endl;
 
-        cv::Mat m_normals, m_vertices, d_normals;
-        frame.normal_pyramid[0].download(d_normals);
+        cv::Mat m_normals, m_vertices, r_normals;
+        frame.normal_pyramid[0].download(r_normals);
         model.normal_pyramid[0].download(m_normals);
         model.vertex_pyramid[0].download(m_vertices);
-        cv::imshow("data normal", d_normals);
+        cv::imshow("frame normal", r_normals);
         cv::imshow("model normal", m_normals);
+        cv::imshow("model vertices", m_vertices);
         cv::imshow("img", img);
         int k = cv::waitKey(1);
         if (k == 'q') break;  // press q to quit

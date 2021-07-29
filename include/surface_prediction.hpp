@@ -8,16 +8,14 @@
 
 void raycastTSDF(
     const TSDFData &tsdf_data,
-    const CameraParameters &cam,
-    const Eigen::Matrix4f &T_c_w,
+    const CameraParameters &cam, const Eigen::Matrix4f &T_c_w,
     GpuMat &vertex_map, GpuMat &normal_map
 );
 
 
 void surfacePrediction(
-    const TSDFData &volume,
-    const CameraParameters &cam,
-    const Eigen::Matrix4f &T_c_w,
+    const TSDFData &volume, 
+    const CameraParameters &cam, const Eigen::Matrix4f &T_c_w,
     const int &num_levels,
     ModelData &model_data
 )
